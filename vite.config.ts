@@ -10,6 +10,18 @@ export default defineConfig({
     react(),
     legacy()
   ],
+  optimizeDeps: {
+    // Capacitor packages are native-only — exclude them from Vite's optimizer
+    // to prevent "file does not exist" errors after dep re-optimization
+    exclude: [
+      '@capacitor/core',
+      '@capacitor/haptics',
+      '@capacitor/push-notifications',
+      '@capacitor/app',
+      '@capacitor/keyboard',
+      '@capacitor/status-bar',
+    ],
+  },
   test: {
     globals: true,
     environment: 'jsdom',

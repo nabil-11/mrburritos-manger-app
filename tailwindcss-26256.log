@@ -1,0 +1,95 @@
+2026-04-03T22:06:02.086084Z  INFO tailwindcss_oxide::scanner: Provided sources:
+2026-04-03T22:06:02.086183Z  INFO tailwindcss_oxide::scanner: Source: PublicSourceEntry { base: "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app", pattern: "**/*", negated: false }
+2026-04-03T22:06:02.086353Z  INFO tailwindcss_oxide::scanner: Optimized sources:
+2026-04-03T22:06:02.086372Z  INFO tailwindcss_oxide::scanner: Source: Auto { base: "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app" }
+2026-04-03T22:06:02.087759Z  INFO discover_sources: tailwindcss_oxide::scanner: enter
+2026-04-03T22:06:02.087931Z  INFO discover_sources:walk_synchronous: tailwindcss_oxide::scanner: enter
+2026-04-03T22:06:02.105880Z  INFO discover_sources:walk_synchronous: tailwindcss_oxide::scanner: exit
+2026-04-03T22:06:02.185440Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\.browserslistrc"
+2026-04-03T22:06:02.185548Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\src\\main\\res\\mipmap-anydpi-v26\\ic_launcher_round.xml"
+2026-04-03T22:06:02.185545Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\package.json"
+2026-04-03T22:06:02.185609Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\variables.gradle"
+2026-04-03T22:06:02.185618Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\App.test.tsx"
+2026-04-03T22:06:02.185562Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\App.tsx"
+2026-04-03T22:06:02.185611Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\cypress.config.ts"
+2026-04-03T22:06:02.185632Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\components\\ExploreContainer.tsx"
+2026-04-03T22:06:02.185580Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\gradle\\gradle-daemon-jvm.properties"
+2026-04-03T22:06:02.185759Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\public\\manifest.json"
+2026-04-03T22:06:02.185767Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\postcss.config.js"
+2026-04-03T22:06:02.185635Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\proguard-rules.pro"
+2026-04-03T22:06:02.185685Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\capacitor.config.ts"
+2026-04-03T22:06:02.185840Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\gradle\\wrapper\\gradle-wrapper.properties"
+2026-04-03T22:06:02.185847Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\vite-env.d.ts"
+2026-04-03T22:06:02.185855Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\public\\firebase-messaging-sw.js"
+2026-04-03T22:06:02.185692Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\.claude\\settings.local.json"
+2026-04-03T22:06:02.185602Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\modules\\orders\\types.ts"
+2026-04-03T22:06:02.185992Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\settings.gradle"
+2026-04-03T22:06:02.185774Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\modules\\auth\\AuthContext.tsx"
+2026-04-03T22:06:02.186034Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\cypress\\e2e\\test.cy.ts"
+2026-04-03T22:06:02.185758Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\tsconfig.json"
+2026-04-03T22:06:02.186064Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\.vscode\\extensions.json"
+2026-04-03T22:06:02.185912Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\.env"
+2026-04-03T22:06:02.185674Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\src\\main\\res\\values\\ic_launcher_background.xml"
+2026-04-03T22:06:02.185907Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\gradlew.bat"
+2026-04-03T22:06:02.186172Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\cypress\\support\\commands.ts"
+2026-04-03T22:06:02.185937Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\gradle.properties"
+2026-04-03T22:06:02.186192Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\setupTests.ts"
+2026-04-03T22:06:02.186207Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\gradlew"
+2026-04-03T22:06:02.186243Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\src\\main\\res\\values\\strings.xml"
+2026-04-03T22:06:02.185966Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\tsconfig.node.json"
+2026-04-03T22:06:02.186273Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\cypress\\fixtures\\example.json"
+2026-04-03T22:06:02.186298Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\index.html"
+2026-04-03T22:06:02.186109Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\modules\\auth\\Login.tsx"
+2026-04-03T22:06:02.185934Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\tailwind.config.js"
+2026-04-03T22:06:02.186011Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\hooks\\useNotifications.ts"
+2026-04-03T22:06:02.186050Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\src\\androidTest\\java\\com\\getcapacitor\\myapp\\ExampleInstrumentedTest.java"
+2026-04-03T22:06:02.186046Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\vite.config.ts"
+2026-04-03T22:06:02.185757Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\firebase.ts"
+2026-04-03T22:06:02.186385Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\modules\\auth\\types.ts"
+2026-04-03T22:06:02.186283Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\build.gradle"
+2026-04-03T22:06:02.186326Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\src\\main\\res\\values\\styles.xml"
+2026-04-03T22:06:02.186368Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\capacitor.build.gradle"
+2026-04-03T22:06:02.186350Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\modules\\common\\api.ts"
+2026-04-03T22:06:02.186407Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\google-services.json"
+2026-04-03T22:06:02.186562Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\src\\test\\java\\com\\getcapacitor\\myapp\\ExampleUnitTest.java"
+2026-04-03T22:06:02.185785Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\main.tsx"
+2026-04-03T22:06:02.186015Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\tsconfig.tsbuildinfo"
+2026-04-03T22:06:02.186634Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\build.gradle"
+2026-04-03T22:06:02.186440Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\src\\main\\res\\mipmap-anydpi-v26\\ic_launcher.xml"
+2026-04-03T22:06:02.186254Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\cypress\\support\\e2e.ts"
+2026-04-03T22:06:02.186458Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\ionic.config.json"
+2026-04-03T22:06:02.186117Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\lib\\firebase.ts"
+2026-04-03T22:06:02.185871Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\eslint.config.js"
+2026-04-03T22:06:02.186502Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\src\\main\\AndroidManifest.xml"
+2026-04-03T22:06:02.186320Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\src\\main\\res\\drawable\\ic_launcher_background.xml"
+2026-04-03T22:06:02.186509Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\src\\main\\java\\io\\ionic\\starter\\MainActivity.java"
+2026-04-03T22:06:02.186554Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\modules\\orders\\Orders.tsx"
+2026-04-03T22:06:02.186587Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\src\\main\\res\\xml\\file_paths.xml"
+2026-04-03T22:06:02.186621Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\src\\main\\res\\drawable-v24\\ic_launcher_foreground.xml"
+2026-04-03T22:06:02.186426Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\app\\src\\main\\res\\layout\\activity_main.xml"
+2026-04-03T22:06:02.186722Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\android\\capacitor.settings.gradle"
+2026-04-03T22:06:02.187048Z  INFO discover_sources: tailwindcss_oxide::scanner: exit
+2026-04-03T22:06:02.187062Z  INFO extract_candidates: tailwindcss_oxide::scanner: enter
+2026-04-03T22:06:02.187067Z  INFO extract_candidates:parse_all_blobs: tailwindcss_oxide::scanner: enter
+2026-04-03T22:06:02.187074Z  INFO extract_candidates:parse_all_blobs:extract: tailwindcss_oxide::scanner: enter
+2026-04-03T22:06:02.200154Z  INFO extract_candidates:parse_all_blobs:extract: tailwindcss_oxide::scanner: exit
+2026-04-03T22:06:02.200196Z  INFO extract_candidates:parse_all_blobs: tailwindcss_oxide::scanner: exit
+2026-04-03T22:06:02.200204Z  INFO extract_candidates:read_all_files: tailwindcss_oxide::scanner: enter
+2026-04-03T22:06:02.200209Z  INFO extract_candidates:read_all_files: tailwindcss_oxide::scanner: Reading 3 file(s)
+2026-04-03T22:06:02.200347Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\index.css"
+2026-04-03T22:06:02.200359Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\components\\ExploreContainer.css"
+2026-04-03T22:06:02.200362Z  INFO tailwindcss_oxide::scanner: Reading "C:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app\\src\\theme\\variables.css"
+2026-04-03T22:06:02.200466Z  INFO extract_candidates:read_all_files: tailwindcss_oxide::scanner: exit
+2026-04-03T22:06:02.200502Z  INFO extract_candidates:extract_css_variables: tailwindcss_oxide::scanner: enter
+2026-04-03T22:06:02.200516Z  INFO extract_candidates:extract_css_variables:extract: tailwindcss_oxide::scanner: enter
+2026-04-03T22:06:02.200728Z  INFO extract_candidates:extract_css_variables:extract: tailwindcss_oxide::scanner: exit
+2026-04-03T22:06:02.200752Z  INFO extract_candidates:extract_css_variables: tailwindcss_oxide::scanner: exit
+2026-04-03T22:06:02.201040Z  INFO extract_candidates: tailwindcss_oxide::scanner: exit
+2026-04-03T22:06:02.201611Z  INFO get_files: tailwindcss_oxide::scanner: enter
+2026-04-03T22:06:02.201621Z  INFO get_files:discover_sources: tailwindcss_oxide::scanner: enter
+2026-04-03T22:06:02.201626Z  INFO get_files:discover_sources: tailwindcss_oxide::scanner: exit
+2026-04-03T22:06:02.201852Z  INFO get_files: tailwindcss_oxide::scanner: exit
+2026-04-03T22:06:02.202029Z  INFO get_globs: tailwindcss_oxide::scanner: enter
+2026-04-03T22:06:02.202036Z  INFO get_globs:discover_sources: tailwindcss_oxide::scanner: enter
+2026-04-03T22:06:02.202040Z  INFO get_globs:discover_sources: tailwindcss_oxide::scanner: exit
+2026-04-03T22:06:02.220585Z  INFO get_globs: tailwindcss_oxide::scanner: exit

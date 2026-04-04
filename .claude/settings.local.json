@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite build)",
+      "Bash(npm install:*)",
+      "Bash(node -e:*)",
+      "Bash(adb devices:*)",
+      "Bash(\"C:/Users/Traveltodo/AppData/Local/Android/Sdk/platform-tools/adb.exe\" devices)",
+      "Bash(\"C:/Users/Traveltodo/AppData/Local/Android/Sdk/emulator/emulator.exe\" -list-avds)",
+      "Bash(\"C:/Users/Traveltodo/AppData/Local/Android/Sdk/platform-tools/adb.exe\" kill-server)",
+      "Bash(\"C:/Users/Traveltodo/AppData/Local/Android/Sdk/platform-tools/adb.exe\" start-server)",
+      "Bash(powershell \"Get-PnpDevice | Where-Object {$_Class -eq ''AndroidUsbDeviceClass'' -or $_FriendlyName -like ''*Android*'' -or $_FriendlyName -like ''*ADB*''} | Select-Object Status, FriendlyName\")",
+      "Bash(powershell \"Get-PnpDevice | Where-Object { $_FriendlyName -like ''*Android*'' -or $_FriendlyName -like ''*ADB*'' -or $_FriendlyName -like ''*Samsung*'' -or $_FriendlyName -like ''*Xiaomi*'' -or $_FriendlyName -like ''*Huawei*'' -or $_FriendlyName -like ''*Oppo*'' } | Select-Object Status, FriendlyName\")",
+      "Bash(powershell -Command:*)",
+      "Bash(\"C:/Users/Traveltodo/AppData/Local/Android/Sdk/platform-tools/adb.exe\" devices -l)",
+      "Bash(timeout:*)",
+      "Bash(npx cap run:*)",
+      "Bash(\"C:/Users/Traveltodo/AppData/Local/Android/Sdk/platform-tools/adb.exe\" shell getprop sys.boot_completed)",
+      "Bash(tasklist:*)",
+      "Bash(powershell \"Get-Process | Where-Object { $_.Name -like ''*emulator*'' -or $_.Name -like ''*qemu*'' } | Select-Object Name, Id, CPU\")",
+      "Bash(npm run build:*)",
+      "Bash(ionic cap run:*)",
+      "Bash(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\Traveltodo\\\\Desktop\\\\Nouveau dossier\\\\mr-burritos-mobile\\\\manager-app\\\\android\"\" && gradlew.bat assembleDebug\")",
+      "Bash(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\Traveltodo\\\\Desktop\\\\Nouveau dossier\\\\mr-burritos-mobile\\\\manager-app\\\\android\"\" && gradlew.bat assembleDebug 2>&1\")",
+      "Bash(cmd.exe /c \"gradlew.bat assembleDebug\")",
+      "Bash(cmd.exe /c:*)",
+      "Bash(~/.bashrc)",
+      "Bash(export PATH=\"$PATH:/c/Users/Traveltodo/AppData/Local/Android/Sdk/platform-tools\")",
+      "Bash(adb kill-server:*)",
+      "Bash(adb start-server:*)",
+      "Bash(adb wait-for-device:*)",
+      "Bash(adb install:*)",
+      "Bash(npx cap sync android)",
+      "Bash(adb:*)"
+    ]
+  }
+}

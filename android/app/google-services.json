@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "281985179029",
+    "project_id": "mr-burritos-d1e5e",
+    "storage_bucket": "mr-burritos-d1e5e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:281985179029:android:5a1cc4a8845ca2b6a56a9c",
+        "android_client_info": {
+          "package_name": "com.mr_burritos.manager"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCJzBhmRK5uYU9MXTeAiPiBBKi0z9_52Sg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'io.ionic.starter',
-  appName: 'manager-app',
+  appId: 'com.mr_burritos.manager',
+  appName: 'Mr. Burritos Manager',
   webDir: 'dist'
 };
 
