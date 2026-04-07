@@ -49,17 +49,17 @@ export const ordersService = {
     return res.data;
   },
 
-  updateStatus: async (id: string, status: string) => {
-    const res = await api.put(`/orders/${id}`, { status });
+  updateStatus: async (id: string, status: string, preparationDuration?: number) => {
+    const res = await api.put(`/orders/${id}`, { status, preparationDuration });
     return res.data;
   },
 };
 
 // Sends the FCM device token to the backend so it can push notifications to this device.
-// Backend endpoint: POST /notifications/register-token  { token: string }
+// Backend endpoint: POST /notifications/register-token  { token: string, platform?: string, phone?: string }
 export const notificationsService = {
-  registerToken: async (token: string) => {
-    await api.post('/notifications/register-token', { token });
+  registerToken: async (token: string, phone?: string) => {
+    await api.post('/notifications/register-token', { token, phone });
   },
 };
 

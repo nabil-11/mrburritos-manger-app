@@ -1,20 +1,14 @@
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
-// ── AudioContext singleton ──────────────────────────────────────────────────
 let ctx: AudioContext | null = null;
 
-/** Must be called inside a user-gesture handler (tap, click) to unlock audio */
 export function unlockAudio() {
   if (ctx) return;
   ctx = new (window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
 }
 
-/**
- * Play a single "ding-dong" alarm note.
- * freq1 → freq2 with an exponential decay — sounds like a restaurant bell.
- */
-function beep(freq1 = 880, freq2 = 660, duration = 0.35) {
+function playTone(freq: number, start: number, duration: number, volume: number = 0.15) {
   if (!ctx) return;
   if (ctx.state === 'suspended') ctx.resume();
 
@@ -23,54 +17,44 @@ function beep(freq1 = 880, freq2 = 660, duration = 0.35) {
   osc.connect(gain);
   gain.connect(ctx.destination);
 
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(freq1, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(freq2, ctx.currentTime + duration * 0.5);
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(freq, start);
 
-  gain.gain.setValueAtTime(0.5, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+  gain.gain.setValueAtTime(0, start);
+  gain.gain.linearRampToValueAtTime(volume, start + 0.01);
+  gain.gain.setValueAtTime(volume, start + duration - 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
 
-  osc.start(ctx.currentTime);
-  osc.stop(ctx.currentTime + duration);
+  osc.start(start);
+  osc.stop(start + duration);
 }
 
 async function vibrate() {
   try {
     if (Capacitor.isNativePlatform()) {
-      await Haptics.impact({ style: ImpactStyle.Heavy });
+      await Haptics.impact({ style: ImpactStyle.Light });
     }
   } catch { /* ignore */ }
 }
 
-// ── Alarm state ────────────────────────────────────────────────────────────
-let alarmTimer: ReturnType<typeof setInterval> | null = null;
-let repeatCount = 0;
-const MAX_REPEATS = 8; // stop after 8 beeps (~8 s)
-
-function stopAlarmInternal() {
-  if (alarmTimer) { clearInterval(alarmTimer); alarmTimer = null; }
-  repeatCount = 0;
-}
-
-/**
- * Play a repeating alarm (ding-dong × MAX_REPEATS) then stop automatically.
- * Call stopAlarm() to dismiss early (e.g. user taps "OK").
- */
 export function startAlarm() {
-  stopAlarmInternal(); // reset if already running
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume();
 
-  const fire = () => {
-    beep(1046, 784);          // C6 → G5
-    setTimeout(() => beep(784, 523), 200); // G5 → C5 (half beat later)
-    vibrate();
-    repeatCount++;
-    if (repeatCount >= MAX_REPEATS) stopAlarmInternal();
-  };
-
-  fire();
-  alarmTimer = setInterval(fire, 1000);
+  const now = ctx.currentTime;
+  
+  playTone(392, now, 0.15, 0.12);        // G4
+  playTone(523, now + 0.12, 0.15, 0.12); // C5
+  playTone(392, now + 0.24, 0.15, 0.12); // G4
+  playTone(523, now + 0.36, 0.15, 0.12); // C5
+  playTone(659, now + 0.48, 0.3, 0.12);  // E5
+  playTone(784, now + 0.72, 0.3, 0.12);  // G5
+  playTone(659, now + 0.96, 0.2, 0.10);  // E5
+  playTone(784, now + 1.10, 0.4, 0.10);  // G5
+  
+  vibrate();
 }
 
 export function stopAlarm() {
-  stopAlarmInternal();
+  // No alarm to stop - sounds play once and stop
 }

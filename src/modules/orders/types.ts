@@ -23,11 +23,15 @@ export interface Order {
     phone: string;
     email?: string;
     address?: string;
+    latitude?: number;
+    longitude?: number;
   };
   items?: OrderItem[];
   notes?: string;
   deliveryCompany?: { name: string; commission: number };
   createdAt: string;
+  confirmedAt?: string;
+  preparationDuration?: number;
 }
 
 export interface OrderStatus {
