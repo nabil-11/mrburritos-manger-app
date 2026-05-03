@@ -55,6 +55,17 @@ export const ordersService = {
   },
 };
 
+export const statisticsService = {
+  getReports: async (from?: string, to?: string) => {
+    const params = new URLSearchParams();
+    if (from) params.append('from', from);
+    if (to) params.append('to', to);
+    const query = params.toString() ? `?${params}` : '';
+    const res = await api.get(`/reports${query}`);
+    return res.data;
+  },
+};
+
 // Sends the FCM device token to the backend so it can push notifications to this device.
 // Backend endpoint: POST /notifications/register-token  { token: string, platform?: string, phone?: string }
 export const notificationsService = {

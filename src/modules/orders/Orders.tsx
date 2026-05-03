@@ -4,6 +4,7 @@ import {
   IonPage, IonContent, IonRefresher, IonRefresherContent,
   IonSelect, IonSelectOption,
   IonSearchbar, IonSpinner, IonToast, IonAlert, IonActionSheet,
+  IonMenuButton, IonHeader, IonToolbar,
 } from '@ionic/react';
 import { IonIcon } from '@ionic/react';
 import {
@@ -389,95 +390,111 @@ export default function OrdersPage() {
       />
 
       {/* ════════════════════ HEADER ════════════════════ */}
-      <div
-        style={{
-          background: T.headerBg,
-          borderBottom: `1px solid ${T.headerBorder}`,
-          zIndex: 100,
-          transition: 'background 0.25s',
-        }}
-        onClick={unlockAudio}
-      >
-        {/* ── Brand row ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px 10px' }}>
-          {/* Logo */}
-          <div style={{
-            width: 40, height: 40, borderRadius: 13, flexShrink: 0,
-            background: 'linear-gradient(135deg, #F5A800, #FF6B00)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 14px rgba(245,168,0,0.45)',
-          }}>
-            <span style={{ color: '#fff', fontWeight: 900, fontSize: 13, letterSpacing: -0.5 }}>MR</span>
-          </div>
-
-          {/* Title + live dot */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ color: T.titleColor, fontWeight: 800, fontSize: 18, letterSpacing: -0.4 }}>Commandes</span>
-              {pendingCount > 0 && (
-                <div style={{
-                  background: '#EF4444', borderRadius: 999,
-                  padding: '2px 8px', fontSize: 11, fontWeight: 800, color: '#fff',
-                }}>
-                  {pendingCount} nouveau{pendingCount > 1 ? 'x' : ''}
-                </div>
-              )}
-              {lateCount > 0 && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 4,
-                  background: 'rgba(239,68,68,0.12)', borderRadius: 999,
-                  padding: '2px 8px', border: '1px solid rgba(239,68,68,0.2)',
-                }}>
-                  <IonIcon icon={alertCircleOutline} style={{ fontSize: 10, color: '#FCA5A5' }} />
-                  <span style={{ fontSize: 10, color: '#FCA5A5', fontWeight: 700 }}>{lateCount} en retard</span>
-                </div>
-              )}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
-              <div style={{
-                width: 7, height: 7, borderRadius: '50%', background: '#10B981',
-                animation: 'liveDot 2.5s ease-in-out infinite',
-              }} />
-              <span style={{ fontSize: 11, color: T.onlineColor, fontWeight: 500 }}>En ligne</span>
-            </div>
-          </div>
-
-          {/* ── Dark/Light toggle ── */}
-          <button
-            onClick={e => { e.stopPropagation(); toggleTheme(); }}
-            title={isDark ? 'Passer en mode clair' : 'Passer en mode sombre'}
-            style={{
-              width: 40, height: 40, borderRadius: 12, cursor: 'pointer', flexShrink: 0,
-              background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(245,168,0,0.15)',
-              border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(245,168,0,0.35)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'background 0.2s, border 0.2s',
-            }}
-          >
-            <IonIcon
-              icon={isDark ? sunnyOutline : moonOutline}
+      <IonHeader style={{ background: T.headerBg, borderBottom: `1px solid ${T.headerBorder}` }}>
+        <IonToolbar
+          style={{
+            '--background': 'transparent',
+            '--border-color': 'transparent',
+            minHeight: 'auto',
+            padding: '14px 16px 10px',
+          }}
+          onClick={unlockAudio}
+        >
+          {/* ── Brand row ── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+            {/* Menu Button */}
+            <IonMenuButton
               style={{
-                fontSize: 18,
-                color: isDark ? '#F5A800' : '#C4A35A',
-                transition: 'color 0.2s',
+                width: 40, height: 40, borderRadius: 12,
+                background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.03)',
+                border: isDark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(0,0,0,0.05)',
+                '--color': T.text2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: 0,
               }}
             />
-          </button>
 
-          {/* Logout */}
-          <button
-            onClick={e => { e.stopPropagation(); stopAlarm(); logout(); history.push('/login'); }}
-            style={{
-              width: 40, height: 40, borderRadius: 12, cursor: 'pointer', flexShrink: 0,
-              background: T.logoutBg,
-              border: `1px solid ${T.logoutBorder}`,
+            {/* Logo */}
+            <div style={{
+              width: 40, height: 40, borderRadius: 13, flexShrink: 0,
+              background: 'linear-gradient(135deg, #F5A800, #FF6B00)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'background 0.2s, border 0.2s',
-            }}
-          >
-            <IonIcon icon={logOutOutline} style={{ fontSize: 18, color: T.text2 }} />
-          </button>
-        </div>
+              boxShadow: '0 2px 14px rgba(245,168,0,0.45)',
+            }}>
+              <span style={{ color: '#fff', fontWeight: 900, fontSize: 13, letterSpacing: -0.5 }}>MR</span>
+            </div>
+
+            {/* Title + live dot */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ color: T.titleColor, fontWeight: 800, fontSize: 18, letterSpacing: -0.4 }}>Commandes</span>
+                {pendingCount > 0 && (
+                  <div style={{
+                    background: '#EF4444', borderRadius: 999,
+                    padding: '2px 8px', fontSize: 11, fontWeight: 800, color: '#fff',
+                  }}>
+                    {pendingCount} nouveau{pendingCount > 1 ? 'x' : ''}
+                  </div>
+                )}
+                {lateCount > 0 && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    background: 'rgba(239,68,68,0.12)', borderRadius: 999,
+                    padding: '2px 8px', border: '1px solid rgba(239,68,68,0.2)',
+                  }}>
+                    <IonIcon icon={alertCircleOutline} style={{ fontSize: 10, color: '#FCA5A5' }} />
+                    <span style={{ fontSize: 10, color: '#FCA5A5', fontWeight: 700 }}>{lateCount} en retard</span>
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
+                <div style={{
+                  width: 7, height: 7, borderRadius: '50%', background: '#10B981',
+                  animation: 'liveDot 2.5s ease-in-out infinite',
+                }} />
+                <span style={{ fontSize: 11, color: T.onlineColor, fontWeight: 500 }}>En ligne</span>
+              </div>
+            </div>
+
+            {/* ── Dark/Light toggle ── */}
+            <button
+              onClick={e => { e.stopPropagation(); toggleTheme(); }}
+              title={isDark ? 'Passer en mode clair' : 'Passer en mode sombre'}
+              style={{
+                width: 40, height: 40, borderRadius: 12, cursor: 'pointer', flexShrink: 0,
+                background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(245,168,0,0.15)',
+                border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(245,168,0,0.35)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background 0.2s, border 0.2s',
+              }}
+            >
+              <IonIcon
+                icon={isDark ? sunnyOutline : moonOutline}
+                style={{
+                  fontSize: 18,
+                  color: isDark ? '#F5A800' : '#C4A35A',
+                  transition: 'color 0.2s',
+                }}
+              />
+            </button>
+
+            {/* Logout */}
+            <button
+              onClick={e => { e.stopPropagation(); stopAlarm(); logout(); history.push('/login'); }}
+              style={{
+                width: 40, height: 40, borderRadius: 12, cursor: 'pointer', flexShrink: 0,
+                background: T.logoutBg,
+                border: `1px solid ${T.logoutBorder}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background 0.2s, border 0.2s',
+              }}
+            >
+              <IonIcon icon={logOutOutline} style={{ fontSize: 18, color: T.text2 }} />
+            </button>
+          </div>
+        </IonToolbar>
 
         {/* ── Live status summary pills ── */}
         {!loading && statusCounts.length > 0 && (
@@ -566,7 +583,7 @@ export default function OrdersPage() {
             );
           })}
         </div>
-      </div>
+      </IonHeader>
 
       {/* ════════════════════ CONTENT ════════════════════ */}
       <IonContent style={{ '--background': T.contentBg, transition: 'background 0.25s' }}>
