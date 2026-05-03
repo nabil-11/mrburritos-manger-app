@@ -32,11 +32,34 @@ export default function Login() {
   return (
     <IonPage>
       <IonContent style={{ '--background': '#0F0F0F' }}>
-        <div className="flex flex-col items-center justify-center min-h-screen px-6">
+        <div className="flex flex-col items-center justify-center min-h-screen px-6" style={{ position: 'relative' }}>
+
+          {/* Ambient background orbs */}
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
+            <div style={{
+              position: 'absolute', width: 340, height: 340, borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(245,168,0,0.09) 0%, transparent 70%)',
+              top: -100, left: -100,
+              animation: 'floatOrb1 12s ease-in-out infinite',
+            }} />
+            <div style={{
+              position: 'absolute', width: 260, height: 260, borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(255,107,0,0.07) 0%, transparent 70%)',
+              bottom: 80, right: -70,
+              animation: 'floatOrb2 16s ease-in-out infinite',
+            }} />
+            <div style={{
+              position: 'absolute', width: 180, height: 180, borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(245,168,0,0.05) 0%, transparent 70%)',
+              top: '45%', right: 10,
+              animation: 'floatOrb1 10s ease-in-out 3s infinite',
+            }} />
+          </div>
 
           {/* Logo */}
-          <div className="text-center mb-10">
-            <div className="flex items-center justify-center gap-1 mb-3">
+          <div className="text-center mb-10" style={{ position: 'relative', zIndex: 1, animation: 'fadeInUp 0.5s ease-out' }}>
+            <div className="flex items-center justify-center gap-1 mb-3"
+              style={{ filter: 'drop-shadow(0 0 28px rgba(245,168,0,0.25))' }}>
               <span style={{
                 color: '#F5A800',
                 fontSize: 52,
@@ -61,7 +84,16 @@ export default function Login() {
           </div>
 
           {/* Card */}
-          <div className="w-full max-w-sm">
+          <div className="w-full max-w-sm" style={{ position: 'relative', zIndex: 1, animation: 'fadeInUp 0.5s ease-out 0.1s both' }}>
+            <div style={{
+              background: 'rgba(24, 24, 24, 0.75)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+              borderRadius: 24,
+              border: '1px solid rgba(255,255,255,0.07)',
+              padding: '28px 22px',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.55)',
+            }}>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
               {/* Email */}
@@ -164,15 +196,18 @@ export default function Login() {
               {/* Error */}
               {error && (
                 <div style={{
-                  background: '#2D1515',
-                  border: '1px solid #EF444440',
-                  borderRadius: 12,
-                  padding: '10px 14px',
+                  background: 'rgba(45,21,21,0.9)',
+                  border: '1px solid rgba(239,68,68,0.35)',
+                  borderRadius: 14,
+                  padding: '12px 16px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 8,
+                  gap: 10,
+                  animation: 'fadeInUp 0.3s ease-out',
                 }}>
-                  <span style={{ fontSize: 16 }}>⚠️</span>
+                  <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(239,68,68,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span style={{ fontSize: 14 }}>⚠️</span>
+                  </div>
                   <IonText style={{ color: '#F87171', fontSize: 13 }}>{error}</IonText>
                 </div>
               )}
@@ -183,12 +218,11 @@ export default function Login() {
                 expand="block"
                 disabled={loading}
                 style={{
-                  '--background': '#F5A800',
-                  '--background-hover': '#FF6B00',
+                  '--background': 'linear-gradient(135deg, #F5A800 0%, #FF8C00 100%)',
                   '--background-activated': '#D97706',
                   '--color': '#000000',
                   '--border-radius': '14px',
-                  '--box-shadow': '0 4px 24px #F5A80040',
+                  '--box-shadow': '0 6px 28px rgba(245,168,0,0.38)',
                   height: 54,
                   fontWeight: 700,
                   fontSize: 16,
@@ -201,10 +235,11 @@ export default function Login() {
                 }
               </IonButton>
             </form>
+            </div>
           </div>
 
           {/* Footer */}
-          <p style={{ color: '#374151', fontSize: 12, marginTop: 40 }}>
+          <p style={{ color: '#374151', fontSize: 12, marginTop: 40, position: 'relative', zIndex: 1 }}>
             Mr. Burritos © {new Date().getFullYear()}
           </p>
         </div>

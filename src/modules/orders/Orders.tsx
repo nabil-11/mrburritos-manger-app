@@ -2,41 +2,55 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   IonPage, IonContent, IonRefresher, IonRefresherContent,
-  IonCard, IonCardContent,
-  IonChip, IonBadge, IonButton, IonIcon,
   IonSelect, IonSelectOption,
   IonSearchbar, IonSpinner, IonToast, IonAlert, IonActionSheet,
 } from '@ionic/react';
+import { IonIcon } from '@ionic/react';
 import {
-  timeOutline, checkmarkCircleOutline, restaurantOutline,
-  bicycleOutline, checkmarkDoneOutline, closeCircleOutline,
-  callOutline, locationOutline, chatbubbleOutline,
+  restaurantOutline, bicycleOutline,
+  callOutline, locationOutline, mapOutline, chatbubbleOutline,
   chevronDownOutline, chevronUpOutline, logOutOutline,
   arrowForwardOutline, alertCircleOutline, timerOutline,
-  addOutline, bagOutline, bicycleOutline as deliveryIcon,
+  addOutline, bagOutline, moonOutline, sunnyOutline,
 } from 'ionicons/icons';
 import { ordersService, authService } from '../common/api';
 import { useAuth } from '../auth/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { Order, ORDER_STATUSES, getStatusLabel, getProductName } from './types';
 import { NEW_ORDER_EVENT } from '../../hooks/useNotifications';
 import { startAlarm, stopAlarm, unlockAudio } from '../../hooks/useAlarm';
 
-// ─── Status colors ────────────────────────────────────────────────────────────
-const STATUS_STYLE: Record<string, { chip: string; dot: string; bar: string; border: string }> = {
-  pending:   { chip: 'bg-amber-100 text-amber-800',    dot: '#F59E0B', bar: '#F59E0B', border: '#FDE68A' },
-  confirmed: { chip: 'bg-blue-100 text-blue-800',      dot: '#3B82F6', bar: '#3B82F6', border: '#BFDBFE' },
-  preparing: { chip: 'bg-purple-100 text-purple-800',  dot: '#8B5CF6', bar: '#8B5CF6', border: '#DDD6FE' },
-  ready:     { chip: 'bg-green-100 text-green-800',    dot: '#10B981', bar: '#10B981', border: '#A7F3D0' },
-  delivered: { chip: 'bg-stone-100 text-stone-600',    dot: '#9CA3AF', bar: '#D1D5DB', border: '#E7E5E4' },
-  cancelled: { chip: 'bg-red-100 text-red-800',        dot: '#EF4444', bar: '#EF4444', border: '#FECACA' },
+// ─── Status config ────────────────────────────────────────────────────────────
+const STATUS_STYLE: Record<string, { dot: string; bar: string; gradient: string }> = {
+  pending:   { dot: '#F59E0B', bar: '#F59E0B', gradient: 'linear-gradient(90deg, #F59E0B, #FCD34D)' },
+  confirmed: { dot: '#3B82F6', bar: '#3B82F6', gradient: 'linear-gradient(90deg, #3B82F6, #93C5FD)' },
+  preparing: { dot: '#8B5CF6', bar: '#8B5CF6', gradient: 'linear-gradient(90deg, #8B5CF6, #C4B5FD)' },
+  ready:     { dot: '#10B981', bar: '#10B981', gradient: 'linear-gradient(90deg, #10B981, #6EE7B7)' },
+  delivered: { dot: '#6B7280', bar: '#374151', gradient: 'linear-gradient(90deg, #374151, #4B5563)' },
+  cancelled: { dot: '#EF4444', bar: '#EF4444', gradient: 'linear-gradient(90deg, #EF4444, #FCA5A5)' },
 };
 const STATUS_FALLBACK = STATUS_STYLE.delivered;
 
-// ─── Quick actions (next logical step per status) ─────────────────────────────
-const QUICK_NEXT: Record<string, { status: string; label: string; color: string }> = {
-  confirmed: { status: 'preparing', label: 'Démarrer préparation', color: 'secondary' },
-  preparing: { status: 'ready',     label: 'Commande prête !',     color: 'success'   },
-  ready:     { status: 'delivered', label: 'Marquer comme livré',  color: 'dark'      },
+// ─── Quick actions per status ─────────────────────────────────────────────────
+const QUICK_NEXT: Record<string, { status: string; label: string; gradient: string; shadow: string }> = {
+  confirmed: {
+    status: 'preparing',
+    label: 'Démarrer la préparation',
+    gradient: 'linear-gradient(135deg, #8B5CF6, #6D28D9)',
+    shadow: 'rgba(109,40,217,0.4)',
+  },
+  preparing: {
+    status: 'ready',
+    label: 'Commande prête !',
+    gradient: 'linear-gradient(135deg, #10B981, #059669)',
+    shadow: 'rgba(5,150,105,0.4)',
+  },
+  ready: {
+    status: 'delivered',
+    label: 'Marquer comme livré',
+    gradient: 'linear-gradient(135deg, #374151, #1F2937)',
+    shadow: 'rgba(0,0,0,0.4)',
+  },
 };
 
 // ─── Filter tabs ──────────────────────────────────────────────────────────────
@@ -61,35 +75,182 @@ function saveTimers(t: TimerMap) {
   localStorage.setItem(TIMER_KEY, JSON.stringify(t));
 }
 
-// ─── Countdown ring SVG ───────────────────────────────────────────────────────
+// ─── Theme color tokens ───────────────────────────────────────────────────────
+function makeTokens(isDark: boolean) {
+  return isDark ? {
+    contentBg:        '#0D0D0D',
+    cardBg:           '#1A1A1A',
+    cardBorder:       'rgba(255,255,255,0.05)',
+    cardShadow:       '0 4px 20px rgba(0,0,0,0.35)',
+    surf2:            '#222222',
+    surf3:            '#262626',
+    text1:            '#F9FAFB',
+    text2:            '#6B7280',
+    text3:            '#374151',
+    ageBg:            '#222222',
+    ageText:          '#6B7280',
+    divider:          'rgba(255,255,255,0.05)',
+    selectColor:      '#374151',
+    addrBg:           'rgba(59,130,246,0.08)',
+    addrBorder:       'rgba(59,130,246,0.15)',
+    addrText:         '#93C5FD',
+    itemRowBg:        '#222222',
+    itemText:         '#F9FAFB',
+    suppText:         '#6B7280',
+    totalBg:          '#111111',
+    totalBorder:      'rgba(255,255,255,0.04)',
+    notesBg:          'rgba(245,168,0,0.07)',
+    notesBorder:      'rgba(245,168,0,0.15)',
+    notesText:        '#D97706',
+    emptyCardBg:      'linear-gradient(135deg, #1A1A1A, #222222)',
+    emptyCardBorder:  'rgba(255,255,255,0.05)',
+    emptyIcon:        '#374151',
+    emptyTitle:       '#F9FAFB',
+    emptySubtitle:    '#4B5563',
+    skeletonBg:       '#1A1A1A',
+    skeletonStripe:   '#2A2A2A',
+    skeletonBlock:    '#262626',
+    skeletonAlt:      '#222222',
+    countText:        '#374151',
+    headerBg:         'linear-gradient(180deg, #141414 0%, #111111 100%)',
+    headerBorder:     'rgba(255,255,255,0.05)',
+    titleColor:       '#F9FAFB',
+    onlineColor:      '#4B5563',
+    pillBg:           'rgba(255,255,255,0.04)',
+    pillBorder:       'rgba(255,255,255,0.06)',
+    pillText:         '#6B7280',
+    searchBg:         '#1E1E1E',
+    searchColor:      '#F9FAFB',
+    searchPlaceholder:'#374151',
+    searchIcon:       '#374151',
+    chipBg:           'rgba(255,255,255,0.04)',
+    chipBorder:       'rgba(255,255,255,0.07)',
+    chipColor:        '#6B7280',
+    chipCountBg:      'rgba(255,255,255,0.08)',
+    chipCountColor:   '#6B7280',
+    logoutBg:         'rgba(255,255,255,0.05)',
+    logoutBorder:     'rgba(255,255,255,0.07)',
+  } : {
+    contentBg:        '#F0EBE3',
+    cardBg:           '#FFFBF6',
+    cardBorder:       'rgba(0,0,0,0.07)',
+    cardShadow:       '0 2px 14px rgba(0,0,0,0.09)',
+    surf2:            '#F5F0EA',
+    surf3:            '#EDE9E3',
+    text1:            '#1C1917',
+    text2:            '#78716C',
+    text3:            '#A8A29E',
+    ageBg:            '#EDE9E3',
+    ageText:          '#A8A29E',
+    divider:          'rgba(0,0,0,0.06)',
+    selectColor:      '#A8A29E',
+    addrBg:           '#EFF6FF',
+    addrBorder:       'rgba(59,130,246,0.25)',
+    addrText:         '#1E40AF',
+    itemRowBg:        '#F5F0EA',
+    itemText:         '#1C1917',
+    suppText:         '#78716C',
+    totalBg:          '#1C1917',
+    totalBorder:      'rgba(0,0,0,0.12)',
+    notesBg:          '#FFFBEB',
+    notesBorder:      'rgba(245,168,0,0.3)',
+    notesText:        '#92400E',
+    emptyCardBg:      'linear-gradient(135deg, #F5F0EA, #E8E2DA)',
+    emptyCardBorder:  'rgba(0,0,0,0.05)',
+    emptyIcon:        '#C4BAB0',
+    emptyTitle:       '#1C1917',
+    emptySubtitle:    '#78716C',
+    skeletonBg:       '#FFFBF6',
+    skeletonStripe:   '#EDE9E3',
+    skeletonBlock:    '#E7E5E4',
+    skeletonAlt:      '#EDE9E3',
+    countText:        '#A8A29E',
+    headerBg:         'linear-gradient(180deg, #FFFBF6 0%, #F5EDE0 100%)',
+    headerBorder:     'rgba(0,0,0,0.09)',
+    titleColor:       '#1C1917',
+    onlineColor:      '#78716C',
+    pillBg:           'rgba(0,0,0,0.04)',
+    pillBorder:       'rgba(0,0,0,0.09)',
+    pillText:         '#A8A29E',
+    searchBg:         '#EDE9E3',
+    searchColor:      '#1C1917',
+    searchPlaceholder:'#A8A29E',
+    searchIcon:       '#A8A29E',
+    chipBg:           'rgba(0,0,0,0.04)',
+    chipBorder:       'rgba(0,0,0,0.08)',
+    chipColor:        '#78716C',
+    chipCountBg:      'rgba(0,0,0,0.06)',
+    chipCountColor:   '#78716C',
+    logoutBg:         'rgba(0,0,0,0.04)',
+    logoutBorder:     'rgba(0,0,0,0.08)',
+  };
+}
+
+// ─── Order age helper ─────────────────────────────────────────────────────────
+function getOrderAge(createdAt: string, now: number): string {
+  const diffMs   = now - new Date(createdAt).getTime();
+  const diffMins = Math.floor(diffMs / 60_000);
+  if (diffMins < 1)  return "à l'instant";
+  if (diffMins < 60) return `${diffMins}m`;
+  const h = Math.floor(diffMins / 60);
+  const m = diffMins % 60;
+  return `${h}h${m ? `${m}m` : ''}`;
+}
+
+// ─── Countdown ring ───────────────────────────────────────────────────────────
 function CountdownRing({ endMs, totalMs, now }: { endMs: number; totalMs: number; now: number }) {
   const remaining = endMs - now;
   const isLate    = remaining <= 0;
   const pct       = isLate ? 0 : Math.min(1, remaining / totalMs);
   const mins      = Math.ceil(remaining / 60_000);
-  const r = 18, c = 2 * Math.PI * r;
+  const r = 20, c = 2 * Math.PI * r;
   const color = isLate ? '#EF4444' : pct > 0.5 ? '#10B981' : pct > 0.25 ? '#F59E0B' : '#EF4444';
 
   return (
-    <div className="flex flex-col items-center gap-0.5 select-none">
-      <div className="relative" style={{ width: 44, height: 44 }}>
-        <svg width={44} height={44} style={{ transform: 'rotate(-90deg)' }}>
-          <circle cx={22} cy={22} r={r} fill="none" stroke="#E7E5E4" strokeWidth={3.5} />
-          <circle cx={22} cy={22} r={r} fill="none" stroke={color} strokeWidth={3.5}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, userSelect: 'none' }}>
+      <div style={{ position: 'relative', width: 50, height: 50 }}>
+        <svg width={50} height={50} style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx={25} cy={25} r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={4} />
+          <circle cx={25} cy={25} r={r} fill="none" stroke={color} strokeWidth={4}
             strokeDasharray={c} strokeDashoffset={c * (1 - pct)}
             strokeLinecap="round"
             style={{ transition: 'stroke-dashoffset 0.9s linear, stroke 0.5s' }}
           />
         </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="font-black" style={{ fontSize: 11, color }}>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: 12, fontWeight: 900, color }}>
             {isLate ? '!' : `${mins}m`}
           </span>
         </div>
       </div>
-      <span className="font-bold" style={{ fontSize: 10, color }}>
-        {isLate ? 'EN RETARD' : 'restant'}
+      <span style={{ fontSize: 9, fontWeight: 800, color, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+        {isLate ? 'Retard' : 'restant'}
       </span>
+    </div>
+  );
+}
+
+// ─── Skeleton loading card ────────────────────────────────────────────────────
+function SkeletonCard({ t }: { t: ReturnType<typeof makeTokens> }) {
+  const base: React.CSSProperties = {
+    background: t.skeletonBlock, borderRadius: 999,
+    animation: 'skeletonPulse 1.6s ease-in-out infinite',
+  };
+  return (
+    <div style={{ borderRadius: 20, overflow: 'hidden', background: t.skeletonBg, animation: 'skeletonPulse 1.6s ease-in-out infinite' }}>
+      <div style={{ height: 4, background: t.skeletonStripe }} />
+      <div style={{ padding: '16px 16px 14px', display: 'flex', flexDirection: 'column', gap: 13 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ ...base, height: 12, width: 58 }} />
+            <div style={{ ...base, height: 28, width: 170, borderRadius: 8 }} />
+            <div style={{ ...base, height: 14, width: 120, borderRadius: 6 }} />
+          </div>
+          <div style={{ ...base, height: 52, width: 64, borderRadius: 12 }} />
+        </div>
+        <div style={{ ...base, height: 54, borderRadius: 14, background: t.skeletonAlt }} />
+      </div>
+      <div style={{ borderTop: `1px solid ${t.divider}`, height: 44 }} />
     </div>
   );
 }
@@ -98,6 +259,8 @@ function CountdownRing({ endMs, totalMs, now }: { endMs: number; totalMs: number
 export default function OrdersPage() {
   const history  = useHistory();
   const { logout } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
+  const T = makeTokens(isDark);
 
   const [orders,        setOrders]       = useState<Order[]>([]);
   const [loading,       setLoading]      = useState(true);
@@ -113,13 +276,11 @@ export default function OrdersPage() {
                                            ({ open: false, orderId: '', orderNumber: '' });
   const [now,           setNow]          = useState(Date.now());
 
-  // Live clock — 1-second tick for countdown rings
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1_000);
     return () => clearInterval(id);
   }, []);
 
-  // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchOrders = useCallback(async () => {
     try {
       const data = await ordersService.getAll(activeFilter || undefined);
@@ -135,7 +296,6 @@ export default function OrdersPage() {
     fetchOrders();
   }, [history, fetchOrders]);
 
-  // ── Push notification listener ─────────────────────────────────────────────
   useEffect(() => {
     const handle = (e: Event) => {
       const { title, body } = (e as CustomEvent).detail ?? {};
@@ -147,7 +307,6 @@ export default function OrdersPage() {
     return () => window.removeEventListener(NEW_ORDER_EVENT, handle);
   }, [fetchOrders]);
 
-  // ── Clean up timers for delivered / cancelled orders ───────────────────────
   useEffect(() => {
     const done = new Set(
       orders.filter(o => o.status === 'delivered' || o.status === 'cancelled').map(o => o._id)
@@ -160,7 +319,6 @@ export default function OrdersPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleRefresh = async (e: CustomEvent) => { await fetchOrders(); e.detail.complete(); };
 
   const handleStatusChange = useCallback(async (orderId: string, newStatus: string) => {
@@ -177,17 +335,15 @@ export default function OrdersPage() {
     }
   }, [orders, fetchOrders]);
 
-  // Called after user picks a prep time from the action sheet
   const handleConfirmWithTime = async (orderId: string, minutes: number) => {
-    const endMs    = now + minutes * 60_000;
-    const totalMs  = minutes * 60_000;
-    const updated  = { ...prepTimers, [orderId]: { endMs, totalMs } };
+    const endMs   = now + minutes * 60_000;
+    const totalMs = minutes * 60_000;
+    const updated = { ...prepTimers, [orderId]: { endMs, totalMs } };
     setPrepTimers(updated);
     saveTimers(updated);
     await handleStatusChange(orderId, 'confirmed');
   };
 
-  // ── Derived values ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     if (!search.trim()) return orders;
     const q = search.toLowerCase();
@@ -201,10 +357,16 @@ export default function OrdersPage() {
   const pendingCount = orders.filter(o => o.status === 'pending').length;
   const lateCount    = Object.values(prepTimers).filter(t => t.endMs < now).length;
 
+  const statusCounts = ['pending', 'confirmed', 'preparing', 'ready'].map(s => ({
+    status: s,
+    count: orders.filter(o => o.status === s).length,
+    color: STATUS_STYLE[s].dot,
+    label: s === 'pending' ? 'Attente' : s === 'confirmed' ? 'Confirmé' : s === 'preparing' ? 'Prépa' : 'Prête',
+  })).filter(s => s.count > 0);
+
   // ──────────────────────────────────────────────────────────────────────────
   return (
     <IonPage>
-      {/* New order alert */}
       <IonAlert
         isOpen={newOrderAlert.open}
         header="🌯 Nouvelle commande !"
@@ -212,8 +374,6 @@ export default function OrdersPage() {
         buttons={[{ text: 'OK', handler: () => { stopAlarm(); setNewOrderAlert({ open: false, message: '' }); setActiveFilter('pending'); } }]}
         onDidDismiss={() => { stopAlarm(); setNewOrderAlert({ open: false, message: '' }); }}
       />
-
-      {/* Preparation time picker */}
       <IonActionSheet
         isOpen={prepSheet.open}
         header="Temps de préparation"
@@ -228,88 +388,179 @@ export default function OrdersPage() {
         onDidDismiss={() => setPrepSheet({ open: false, orderId: '', orderNumber: '' })}
       />
 
-      {/* ════════════════════ TOP APP BAR ════════════════════ */}
-      <div className="bg-stone-900" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.4)', zIndex: 100 }} onClick={unlockAudio}>
-
-        {/* Brand row */}
-        <div className="flex items-center gap-3 px-4 pt-3 pb-2">
+      {/* ════════════════════ HEADER ════════════════════ */}
+      <div
+        style={{
+          background: T.headerBg,
+          borderBottom: `1px solid ${T.headerBorder}`,
+          zIndex: 100,
+          transition: 'background 0.25s',
+        }}
+        onClick={unlockAudio}
+      >
+        {/* ── Brand row ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px 10px' }}>
           {/* Logo */}
-          <div className="flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg,#F5A800,#D97706)', boxShadow: '0 2px 8px rgba(245,168,0,0.3)' }}>
-            <span className="text-white font-black text-sm tracking-tight">MR</span>
+          <div style={{
+            width: 40, height: 40, borderRadius: 13, flexShrink: 0,
+            background: 'linear-gradient(135deg, #F5A800, #FF6B00)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 14px rgba(245,168,0,0.45)',
+          }}>
+            <span style={{ color: '#fff', fontWeight: 900, fontSize: 13, letterSpacing: -0.5 }}>MR</span>
           </div>
 
-          {/* Title + counters */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-white font-bold text-lg leading-tight">Commandes</span>
+          {/* Title + live dot */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ color: T.titleColor, fontWeight: 800, fontSize: 18, letterSpacing: -0.4 }}>Commandes</span>
               {pendingCount > 0 && (
-                <IonBadge color="danger" className="text-xs font-bold px-1.5 py-0.5 rounded-full">
-                  {pendingCount}
-                </IonBadge>
+                <div style={{
+                  background: '#EF4444', borderRadius: 999,
+                  padding: '2px 8px', fontSize: 11, fontWeight: 800, color: '#fff',
+                }}>
+                  {pendingCount} nouveau{pendingCount > 1 ? 'x' : ''}
+                </div>
               )}
               {lateCount > 0 && (
-                <div className="flex items-center gap-1 bg-red-950 rounded-full px-2 py-0.5">
-                  <IonIcon icon={alertCircleOutline} style={{ fontSize: 11, color: '#FCA5A5' }} />
-                  <span className="text-red-300 font-bold" style={{ fontSize: 10 }}>{lateCount} en retard</span>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  background: 'rgba(239,68,68,0.12)', borderRadius: 999,
+                  padding: '2px 8px', border: '1px solid rgba(239,68,68,0.2)',
+                }}>
+                  <IonIcon icon={alertCircleOutline} style={{ fontSize: 10, color: '#FCA5A5' }} />
+                  <span style={{ fontSize: 10, color: '#FCA5A5', fontWeight: 700 }}>{lateCount} en retard</span>
                 </div>
               )}
             </div>
-            <span className="text-stone-500 text-xs">Mr. Burritos Manager</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
+              <div style={{
+                width: 7, height: 7, borderRadius: '50%', background: '#10B981',
+                animation: 'liveDot 2.5s ease-in-out infinite',
+              }} />
+              <span style={{ fontSize: 11, color: T.onlineColor, fontWeight: 500 }}>En ligne</span>
+            </div>
           </div>
 
+          {/* ── Dark/Light toggle ── */}
+          <button
+            onClick={e => { e.stopPropagation(); toggleTheme(); }}
+            title={isDark ? 'Passer en mode clair' : 'Passer en mode sombre'}
+            style={{
+              width: 40, height: 40, borderRadius: 12, cursor: 'pointer', flexShrink: 0,
+              background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(245,168,0,0.15)',
+              border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(245,168,0,0.35)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'background 0.2s, border 0.2s',
+            }}
+          >
+            <IonIcon
+              icon={isDark ? sunnyOutline : moonOutline}
+              style={{
+                fontSize: 18,
+                color: isDark ? '#F5A800' : '#C4A35A',
+                transition: 'color 0.2s',
+              }}
+            />
+          </button>
+
           {/* Logout */}
-          <IonButton fill="clear" onClick={e => { e.stopPropagation(); stopAlarm(); logout(); history.push('/login'); }}
-            style={{ '--color': '#78716C', '--padding-start': '8px', '--padding-end': '8px' }}>
-            <IonIcon slot="icon-only" icon={logOutOutline} />
-          </IonButton>
+          <button
+            onClick={e => { e.stopPropagation(); stopAlarm(); logout(); history.push('/login'); }}
+            style={{
+              width: 40, height: 40, borderRadius: 12, cursor: 'pointer', flexShrink: 0,
+              background: T.logoutBg,
+              border: `1px solid ${T.logoutBorder}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'background 0.2s, border 0.2s',
+            }}
+          >
+            <IonIcon icon={logOutOutline} style={{ fontSize: 18, color: T.text2 }} />
+          </button>
         </div>
 
-        {/* Search */}
-        <div className="px-3 pb-2">
+        {/* ── Live status summary pills ── */}
+        {!loading && statusCounts.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, padding: '0 16px 10px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+            {statusCounts.map(s => (
+              <button
+                key={s.status}
+                onClick={() => setActiveFilter(s.status)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, cursor: 'pointer',
+                  background: activeFilter === s.status ? `${s.color}22` : T.pillBg,
+                  border: `1px solid ${activeFilter === s.status ? `${s.color}44` : T.pillBorder}`,
+                  borderRadius: 10, padding: '5px 12px',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: s.color }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: s.color }}>{s.count}</span>
+                <span style={{ fontSize: 11, color: T.pillText, fontWeight: 500 }}>{s.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* ── Search ── */}
+        <div style={{ padding: '0 12px 10px' }}>
           <IonSearchbar
             value={search}
             onIonInput={e => setSearch(e.detail.value ?? '')}
             placeholder="N° commande, client, téléphone…"
             animated={false}
             style={{
-              '--background': '#292524', '--color': '#F5F5F4', '--placeholder-color': '#78716C',
-              '--icon-color': '#78716C', '--clear-button-color': '#78716C',
-              '--border-radius': '12px', '--box-shadow': 'none', padding: 0,
+              '--background': T.searchBg, '--color': T.searchColor,
+              '--placeholder-color': T.searchPlaceholder, '--icon-color': T.searchIcon,
+              '--clear-button-color': T.text2,
+              '--border-radius': '13px', '--box-shadow': 'none', padding: 0,
             }}
           />
         </div>
 
-        {/* Filter chips */}
-        <div className="flex gap-2 px-3 pb-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        {/* ── Filter chips ── */}
+        <div style={{ display: 'flex', gap: 6, padding: '0 12px 14px', overflowX: 'auto', scrollbarWidth: 'none' }}>
           {TABS.map(tab => {
             const isActive = activeFilter === tab.value;
-            const cnt = tab.value ? orders.filter(o => o.status === tab.value).length : orders.length;
-            const hasLate = tab.value
+            const ss       = tab.value ? STATUS_STYLE[tab.value] : null;
+            const cnt      = tab.value ? orders.filter(o => o.status === tab.value).length : orders.length;
+            const hasLate  = tab.value
               ? orders.filter(o => o.status === tab.value).some(o => prepTimers[o._id] && prepTimers[o._id].endMs < now)
               : lateCount > 0;
             return (
               <button
                 key={tab.value}
                 onClick={() => setActiveFilter(tab.value)}
-                className="flex items-center gap-1.5 flex-shrink-0 font-semibold rounded-lg relative"
                 style={{
-                  height: 32, padding: '0 12px', fontSize: 12, cursor: 'pointer',
-                  border: isActive ? 'none' : '1.5px solid #3C3732',
-                  background: isActive ? '#F5A800' : 'transparent',
-                  color: isActive ? '#1C1200' : '#A8A29E',
+                  height: 34, padding: '0 13px', fontSize: 12, cursor: 'pointer',
+                  borderRadius: 9, flexShrink: 0, position: 'relative',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  border: isActive ? 'none' : `1px solid ${T.chipBorder}`,
+                  background: isActive
+                    ? (ss ? ss.gradient : 'linear-gradient(135deg, #F5A800, #FF8C00)')
+                    : T.chipBg,
+                  color: isActive ? (tab.value ? '#fff' : '#1C1200') : T.chipColor,
                   fontWeight: isActive ? 700 : 500,
+                  transition: 'all 0.15s',
+                  boxShadow: isActive && ss ? `0 2px 10px ${ss.dot}33` : 'none',
                 }}
               >
                 {tab.label}
                 {cnt > 0 && (
-                  <span className="rounded-full font-bold px-1.5 leading-relaxed"
-                    style={{ fontSize: 10, background: isActive ? 'rgba(0,0,0,0.15)' : '#3C3732', color: isActive ? '#1C1200' : '#D6D3D1' }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 800, borderRadius: 999,
+                    padding: '1px 5px',
+                    background: isActive ? 'rgba(0,0,0,0.2)' : T.chipCountBg,
+                    color: isActive ? 'rgba(255,255,255,0.9)' : T.chipCountColor,
+                  }}>
                     {cnt}
                   </span>
                 )}
                 {hasLate && !isActive && (
-                  <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-500" />
+                  <span style={{
+                    position: 'absolute', top: 5, right: 5,
+                    width: 5, height: 5, borderRadius: '50%', background: '#EF4444',
+                  }} />
                 )}
               </button>
             );
@@ -318,316 +569,477 @@ export default function OrdersPage() {
       </div>
 
       {/* ════════════════════ CONTENT ════════════════════ */}
-      <IonContent style={{ '--background': '#F0EBE3' }}>
+      <IonContent style={{ '--background': T.contentBg, transition: 'background 0.25s' }}>
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
           <IonRefresherContent pullingText="Actualiser…" />
         </IonRefresher>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center pt-24 gap-4">
-            <IonSpinner name="crescent" style={{ color: '#F5A800', width: 44, height: 44 }} />
-            <span className="text-stone-400 text-sm">Chargement des commandes…</span>
+          <div style={{ padding: '12px 12px 80px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <SkeletonCard t={T} />
+            <SkeletonCard t={T} />
+            <SkeletonCard t={T} />
           </div>
         ) : (
-          <div className="px-3 pt-3 pb-16">
+          <div style={{ padding: '12px 12px 80px' }}>
 
             {/* Count */}
-            <p className="text-xs text-stone-400 font-medium mb-3 pl-1">
-              {filtered.length} commande{filtered.length !== 1 ? 's' : ''}
-              {search && <span className="text-amber-500"> · « {search} »</span>}
-            </p>
+            <div style={{ marginBottom: 10, paddingLeft: 2 }}>
+              <span style={{ fontSize: 12, color: T.countText, fontWeight: 500 }}>
+                {filtered.length} commande{filtered.length !== 1 ? 's' : ''}
+                {search && <span style={{ color: '#F5A800' }}> · « {search} »</span>}
+              </span>
+            </div>
 
             {/* Empty state */}
             {filtered.length === 0 && (
-              <div className="flex flex-col items-center pt-16 gap-3">
-                <div className="w-16 h-16 rounded-full bg-stone-200 flex items-center justify-center">
-                  <IonIcon icon={restaurantOutline} style={{ fontSize: 32, color: '#A8A29E' }} />
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                paddingTop: 64, gap: 18, animation: 'slideUp 0.3s ease-out',
+              }}>
+                <div style={{
+                  width: 84, height: 84, borderRadius: '50%',
+                  background: T.emptyCardBg,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                  border: `1px solid ${T.emptyCardBorder}`,
+                }}>
+                  <IonIcon icon={restaurantOutline} style={{ fontSize: 36, color: T.emptyIcon }} />
                 </div>
-                <p className="text-stone-600 font-semibold text-base">Aucune commande</p>
-                <p className="text-stone-400 text-sm">Aucun résultat pour ce filtre</p>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ color: T.emptyTitle, fontWeight: 700, fontSize: 18, margin: 0 }}>
+                    Aucune commande
+                  </p>
+                  <p style={{ color: T.emptySubtitle, fontSize: 13, marginTop: 6, margin: '6px 0 0' }}>
+                    {search ? `Aucun résultat pour « ${search} »` : 'Les commandes apparaîtront ici'}
+                  </p>
+                </div>
               </div>
             )}
 
-            {/* Cards */}
-            <div className="flex flex-col gap-3">
+            {/* ════════ ORDER CARDS ════════ */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {filtered.map(order => {
                 const ss         = STATUS_STYLE[order.status] ?? STATUS_FALLBACK;
                 const timer      = prepTimers[order._id];
                 const isLate     = timer ? timer.endMs < now : false;
                 const isUpdating = updatingId === order._id;
-                const isExpanded = expandedId  === order._id;
+                const isExpanded = expandedId === order._id;
                 const hasDetails = !!(order.customer.address || (order.items && order.items.length > 0) || order.notes);
                 const nextAction = QUICK_NEXT[order.status];
 
                 return (
-                  <IonCard
+                  <div
                     key={order._id}
-                    className="m-0 overflow-hidden"
                     style={{
-                      '--background': '#FFFBF6',
-                      borderRadius: 18,
-                      boxShadow: isLate
-                        ? '0 0 0 2px #EF4444, 0 4px 16px rgba(239,68,68,0.15)'
-                        : '0 1px 4px rgba(0,0,0,0.08), 0 4px 14px rgba(0,0,0,0.06)',
-                      opacity: isUpdating ? 0.6 : 1,
-                      transition: 'opacity 0.2s, box-shadow 0.3s',
+                      borderRadius: 20,
+                      overflow: 'hidden',
+                      background: T.cardBg,
+                      border: `1px solid ${T.cardBorder}`,
+                      boxShadow: isUpdating || (!isLate && order.status !== 'pending')
+                        ? T.cardShadow
+                        : undefined,
+                      animation: !isUpdating
+                        ? isLate
+                          ? 'latePulse 1.5s ease-in-out infinite'
+                          : order.status === 'pending'
+                            ? 'pendingPulse 2.5s ease-in-out infinite'
+                            : undefined
+                        : undefined,
+                      opacity: isUpdating ? 0.55 : 1,
+                      transition: 'opacity 0.15s, background 0.25s, border-color 0.25s',
                     }}
                   >
-                    {/* Top accent + optional prep-timer progress bar */}
+                    {/* Color stripe / timer bar */}
                     {timer ? (
-                      <div className="h-1.5 bg-stone-100 relative overflow-hidden">
-                        <div
-                          className="h-full absolute left-0 top-0 transition-all duration-1000"
-                          style={{
-                            width: `${Math.max(0, Math.min(100, ((timer.endMs - now) / timer.totalMs) * 100))}%`,
-                            background: isLate ? '#EF4444' : now > timer.endMs - timer.totalMs * 0.25 ? '#F59E0B' : '#10B981',
-                          }}
-                        />
+                      <div style={{ height: 5, background: isDark ? 'rgba(255,255,255,0.04)' : '#E7E5E4', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{
+                          position: 'absolute', left: 0, top: 0, height: '100%',
+                          width: `${Math.max(0, Math.min(100, ((timer.endMs - now) / timer.totalMs) * 100))}%`,
+                          background: isLate ? '#EF4444' : now > timer.endMs - timer.totalMs * 0.25 ? '#F59E0B' : '#10B981',
+                          transition: 'width 1s linear',
+                          boxShadow: isLate ? '0 0 8px rgba(239,68,68,0.5)' : '0 0 6px rgba(16,185,129,0.4)',
+                        }} />
                       </div>
                     ) : (
-                      <div className="h-1" style={{ background: ss.bar }} />
+                      <div style={{ height: 4, background: ss.gradient }} />
                     )}
 
-                    <IonCardContent className="p-0">
-                      <div className="flex">
-                        {/* Left accent bar */}
-                        <div className="w-1 flex-shrink-0" style={{ background: ss.bar }} />
+                    {/* Card body */}
+                    <div style={{ padding: '15px 16px 14px' }}>
 
-                        <div className="flex-1 p-4 space-y-3">
-
-                          {/* ── Row 1: # · type · price · timer ── */}
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex flex-col gap-1.5">
-                              <span className="font-bold text-xs tracking-wider" style={{ color: '#F5A800' }}>
-                                #{order.orderNumber}
-                              </span>
-                              <IonChip
-                                className="m-0"
-                                style={{
-                                  '--background': order.type === 'delivery' ? '#ECFDF5' : '#EEF2FF',
-                                  '--color':      order.type === 'delivery' ? '#065F46' : '#3730A3',
-                                  height: 24, fontSize: 11, fontWeight: 700, padding: '0 9px',
-                                }}
-                              >
-                                <IonIcon
-                                  icon={order.type === 'delivery' ? bicycleOutline : bagOutline}
-                                  style={{ fontSize: 12, marginRight: 4 }}
-                                />
-                                {order.type === 'delivery' ? 'Livraison' : 'À emporter'}
-                              </IonChip>
-                            </div>
-
-                            {/* Price + countdown ring */}
-                            <div className="flex items-center gap-3">
-                              {timer && (
-                                <CountdownRing endMs={timer.endMs} totalMs={timer.totalMs} now={now} />
-                              )}
-                              <div className="text-right">
-                                <div className="font-black text-stone-900 leading-none" style={{ fontSize: 26, letterSpacing: -1 }}>
-                                  {order.total.toFixed(2)}
-                                </div>
-                                <div className="font-bold text-xs tracking-widest" style={{ color: '#F5A800' }}>DT</div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* ── Row 2: customer ── */}
-                          <div className="flex items-center gap-3 rounded-xl p-3" style={{ background: '#F5F0EA' }}>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-stone-900 text-base truncate leading-tight">{order.customer.name}</p>
-                              <div className="flex items-center gap-1.5 mt-1">
-                                <IonIcon icon={callOutline} style={{ fontSize: 12, color: '#A8A29E' }} />
-                                <span className="text-stone-500 text-xs">{order.customer.phone}</span>
-                              </div>
-                            </div>
-                            {order.items && order.items.length > 0 && (
-                              <div className="flex-shrink-0 rounded-lg px-3 py-1.5 text-center" style={{ background: '#1C1917' }}>
-                                <div className="font-black leading-none" style={{ fontSize: 18, color: '#F5A800' }}>{order.items.length}</div>
-                                <div className="font-semibold leading-none mt-0.5" style={{ fontSize: 9, color: '#78716C', letterSpacing: 0.5 }}>
-                                  article{order.items.length > 1 ? 's' : ''}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* ── Row 3: status badge + IonSelect ── */}
-                          <div className="flex items-center gap-2">
-                            <IonChip
-                              className={`m-0 font-bold ${ss.chip}`}
-                              style={{ height: 30, fontSize: 12, padding: '0 10px', '--background': 'transparent' }}
-                            >
-                              <span className="w-2 h-2 rounded-full mr-1.5 flex-shrink-0" style={{ background: ss.dot }} />
-                              {getStatusLabel(order.status)}
-                            </IonChip>
-                            <div className="flex-1 flex justify-end">
-                              {isUpdating ? (
-                                <IonSpinner name="dots" style={{ color: '#F5A800', width: 26, height: 26 }} />
-                              ) : (
-                                <IonSelect
-                                  value={order.status}
-                                  onIonChange={e => handleStatusChange(order._id, e.detail.value!)}
-                                  interface="action-sheet"
-                                  interfaceOptions={{ header: `#${order.orderNumber}` }}
-                                  fill="outline"
-                                  style={{
-                                    '--border-color': '#D6D0C8', '--border-radius': '8px',
-                                    '--padding-start': '10px', '--highlight-color-focused': '#F5A800',
-                                    '--color': '#78716C', fontSize: 12, fontWeight: 600, minWidth: 135,
-                                  }}
-                                >
-                                  {ORDER_STATUSES.map(os => (
-                                    <IonSelectOption key={os.value} value={os.value}>{os.label}</IonSelectOption>
-                                  ))}
-                                </IonSelect>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* ── Row 4: QUICK ACTION button ── */}
-                          {!isUpdating && (
-                            <>
-                              {/* Pending → open prep-time picker */}
-                              {order.status === 'pending' && (
-                                <IonButton
-                                  expand="block"
-                                  color="warning"
-                                  className="font-bold rounded-xl"
-                                  style={{ '--border-radius': '10px', height: 42, '--color': '#1C1200' }}
-                                  onClick={() => setPrepSheet({ open: true, orderId: order._id, orderNumber: order.orderNumber })}
-                                >
-                                  <IonIcon slot="start" icon={timerOutline} />
-                                  Confirmer + Temps de prépa
-                                </IonButton>
-                              )}
-
-                              {/* Other statuses → direct advance */}
-                              {nextAction && (
-                                <IonButton
-                                  expand="block"
-                                  color={nextAction.color as any}
-                                  className="font-bold rounded-xl"
-                                  style={{ '--border-radius': '10px', height: 42 }}
-                                  onClick={() => handleStatusChange(order._id, nextAction.status)}
-                                >
-                                  <IonIcon slot="start" icon={arrowForwardOutline} />
-                                  {nextAction.label}
-                                </IonButton>
-                              )}
-                            </>
+                      {/* Row 1 — Meta */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 800, fontSize: 13, color: '#F5A800', letterSpacing: 0.3 }}>
+                            #{order.orderNumber}
+                          </span>
+                          <span style={{
+                            fontSize: 10, fontWeight: 600, color: T.ageText,
+                            background: T.ageBg, borderRadius: 999, padding: '2px 8px',
+                          }}>
+                            {getOrderAge(order.createdAt, now)}
+                          </span>
+                          {order.status === 'pending' && (
+                            <span style={{
+                              fontSize: 9, fontWeight: 800, letterSpacing: 1,
+                              color: '#92400E', background: '#FDE68A',
+                              borderRadius: 999, padding: '2px 8px', textTransform: 'uppercase',
+                            }}>
+                              Nouveau
+                            </span>
                           )}
-
-                          {/* ── Row 5: details toggle ── */}
-                          {hasDetails && (
-                            <button
-                              onClick={() => setExpandedId(isExpanded ? null : order._id)}
-                              className="w-full flex items-center justify-between rounded-xl px-4 font-semibold text-xs"
-                              style={{
-                                height: 38,
-                                background: isExpanded ? '#1C1917' : '#F0EBE3',
-                                color: isExpanded ? '#F5A800' : '#78716C',
-                                border: 'none', cursor: 'pointer',
-                              }}
-                            >
-                              <span>
-                                {isExpanded ? 'Masquer les détails' : `Détails${order.items?.length ? ` (${order.items.length} article${order.items.length > 1 ? 's' : ''})` : ''}`}
-                              </span>
-                              <IonIcon
-                                icon={isExpanded ? chevronUpOutline : chevronDownOutline}
-                                style={{ fontSize: 16 }}
-                              />
-                            </button>
-                          )}
-
-                          {/* ══════════ EXPANDABLE DETAILS ══════════ */}
-                          {isExpanded && (
-                            <div className="flex flex-col gap-2 pt-1">
-
-                              {/* Address */}
-                              {order.type === 'delivery' && order.customer.address && (
-                                <div className="flex items-start gap-2.5 rounded-xl p-3" style={{ background: '#EFF6FF', borderLeft: '3px solid #3B82F6' }}>
-                                  <IonIcon icon={locationOutline} style={{ fontSize: 16, color: '#3B82F6', flexShrink: 0, marginTop: 1 }} />
-                                  <span className="text-blue-700 text-sm leading-relaxed">{order.customer.address}</span>
-                                </div>
-                              )}
-
-                              {/* Items list */}
-                              {order.items && order.items.length > 0 && (
-                                <div>
-                                  <p className="text-xs font-bold text-stone-400 uppercase tracking-wider px-1 mb-2">Articles</p>
-                                  <div className="flex flex-col gap-1.5">
-                                    {order.items.map((item, idx) => {
-                                      const name      = getProductName(item.productName);
-                                      const suppTotal = (item.supplements ?? []).reduce((a, x) => a + x.price, 0);
-                                      const lineTotal = (item.unitPrice + suppTotal) * item.quantity;
-                                      return (
-                                        <div key={idx} className="flex items-start gap-3 rounded-xl p-3" style={{ background: '#F5F0EA' }}>
-                                          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 font-black text-sm"
-                                            style={{ background: '#1C1917', color: '#F5A800' }}>
-                                            {item.quantity}
-                                          </div>
-                                          <div className="flex-1 min-w-0">
-                                            <p className="font-semibold text-stone-900 text-sm">{name}</p>
-                                            {item.supplements && item.supplements.length > 0 && (
-                                              <div className="mt-1 space-y-0.5">
-                                                {item.supplements.map((sup, si) => (
-                                                  <div key={si} className="flex items-center gap-1.5">
-                                                    <IonIcon icon={addOutline} style={{ fontSize: 10, color: '#10B981' }} />
-                                                    <span className="text-stone-500 text-xs">
-                                                      {sup.name?.fr ?? sup.name?.ar ?? '—'}
-                                                      {sup.price > 0 ? ` +${sup.price.toFixed(2)} DT` : ''}
-                                                    </span>
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            )}
-                                            {item.notes && (
-                                              <p className="text-stone-400 text-xs italic mt-1">{item.notes}</p>
-                                            )}
-                                          </div>
-                                          <div className="text-right flex-shrink-0">
-                                            <p className="font-bold text-stone-900 text-sm">{lineTotal.toFixed(2)}</p>
-                                            <p className="text-stone-400 text-xs">DT</p>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-
-                                  {/* Total */}
-                                  <div className="rounded-xl p-3 mt-2" style={{ background: '#1C1917' }}>
-                                    {order.subtotal !== undefined && order.subtotal !== order.total && (
-                                      <div className="flex justify-between mb-2">
-                                        <span className="text-stone-500 text-xs">Sous-total</span>
-                                        <span className="text-stone-400 text-xs">{order.subtotal.toFixed(2)} DT</span>
-                                      </div>
-                                    )}
-                                    {order.deliveryCompany?.name && (
-                                      <div className="flex justify-between mb-2">
-                                        <span className="text-stone-500 text-xs">{order.deliveryCompany.name} ({order.deliveryCompany.commission}%)</span>
-                                      </div>
-                                    )}
-                                    <div className="flex justify-between items-baseline">
-                                      <span className="text-stone-300 font-semibold text-sm">Total</span>
-                                      <span className="font-black text-xl" style={{ color: '#F5A800' }}>{order.total.toFixed(2)} DT</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Notes */}
-                              {order.notes && (
-                                <div className="flex items-start gap-2.5 rounded-xl p-3" style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B' }}>
-                                  <IonIcon icon={chatbubbleOutline} style={{ fontSize: 15, color: '#F59E0B', flexShrink: 0, marginTop: 1 }} />
-                                  <span className="text-amber-800 text-xs leading-relaxed">{order.notes}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
+                        </div>
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+                          background: order.type === 'delivery' ? 'rgba(16,185,129,0.1)' : 'rgba(139,92,246,0.1)',
+                          border: `1px solid ${order.type === 'delivery' ? 'rgba(16,185,129,0.2)' : 'rgba(139,92,246,0.2)'}`,
+                          color: order.type === 'delivery' ? '#34D399' : '#A78BFA',
+                          borderRadius: 999, padding: '5px 11px',
+                          fontSize: 11, fontWeight: 700,
+                        }}>
+                          <IonIcon icon={order.type === 'delivery' ? bicycleOutline : bagOutline} style={{ fontSize: 13 }} />
+                          {order.type === 'delivery' ? 'Livraison' : 'À emporter'}
                         </div>
                       </div>
-                    </IonCardContent>
-                  </IonCard>
+
+                      {/* Row 2 — Customer + Price */}
+                      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, marginBottom: 11 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{
+                            fontSize: 22, fontWeight: 900, color: T.text1,
+                            letterSpacing: -0.5, lineHeight: 1.15, margin: 0,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {order.customer.name}
+                          </p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
+                            <IonIcon icon={callOutline} style={{ fontSize: 11, color: T.text3 }} />
+                            <span style={{ fontSize: 12, color: T.text2, fontWeight: 500 }}>
+                              {order.customer.phone}
+                            </span>
+                            {order.type === 'delivery' && order.customer.address && (() => {
+                              const mapsUrl = order.customer.latitude && order.customer.longitude
+                                ? `https://www.google.com/maps/dir/?api=1&destination=${order.customer.latitude},${order.customer.longitude}`
+                                : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.customer.address)}`;
+                              return (
+                                <a
+                                  href={mapsUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={e => e.stopPropagation()}
+                                  style={{
+                                    display: 'flex', alignItems: 'center', gap: 4,
+                                    background: T.addrBg,
+                                    border: `1px solid ${T.addrBorder}`,
+                                    color: isDark ? '#60A5FA' : '#2563EB',
+                                    borderRadius: 999, padding: '3px 10px',
+                                    fontSize: 11, fontWeight: 700,
+                                    textDecoration: 'none',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <IonIcon icon={mapOutline} style={{ fontSize: 12 }} />
+                                  Carte
+                                </a>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          {timer ? (
+                            <CountdownRing endMs={timer.endMs} totalMs={timer.totalMs} now={now} />
+                          ) : (
+                            <>
+                              <div style={{
+                                fontSize: 32, fontWeight: 900, color: T.text1,
+                                letterSpacing: -1.5, lineHeight: 1,
+                              }}>
+                                {order.total.toFixed(2)}
+                              </div>
+                              <div style={{
+                                fontSize: 11, fontWeight: 800, color: '#F5A800',
+                                letterSpacing: 2.5, marginTop: 2,
+                              }}>
+                                DT
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Row 3 — Items + Status */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {order.items && order.items.length > 0 && (
+                          <div style={{
+                            display: 'flex', alignItems: 'center', gap: 5,
+                            background: T.surf2, borderRadius: 999, padding: '5px 12px',
+                          }}>
+                            <span style={{ fontSize: 14, fontWeight: 900, color: '#F5A800' }}>
+                              {order.items.length}
+                            </span>
+                            <span style={{ fontSize: 10, fontWeight: 600, color: T.text2 }}>
+                              article{order.items.length > 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        )}
+
+                        {timer && (
+                          <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                            <div style={{ fontSize: 28, fontWeight: 900, color: T.text1, letterSpacing: -1, lineHeight: 1 }}>
+                              {order.total.toFixed(2)}
+                            </div>
+                            <div style={{ fontSize: 10, fontWeight: 800, color: '#F5A800', letterSpacing: 2.5 }}>DT</div>
+                          </div>
+                        )}
+
+                        {!timer && (
+                          <div style={{
+                            marginLeft: 'auto',
+                            display: 'flex', alignItems: 'center', gap: 5,
+                            padding: '5px 11px', borderRadius: 999,
+                            background: `${ss.dot}14`, border: `1px solid ${ss.dot}30`,
+                          }}>
+                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: ss.dot }} />
+                            <span style={{ fontSize: 11, fontWeight: 700, color: ss.dot }}>
+                              {getStatusLabel(order.status)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Primary CTA */}
+                    {!isUpdating && (order.status === 'pending' || nextAction) && (
+                      <div style={{ padding: '0 12px 12px' }}>
+                        {order.status === 'pending' && (
+                          <button
+                            onClick={() => setPrepSheet({ open: true, orderId: order._id, orderNumber: order.orderNumber })}
+                            style={{
+                              width: '100%', height: 54, borderRadius: 15, border: 'none', cursor: 'pointer',
+                              background: 'linear-gradient(135deg, #F5A800 0%, #FF8C00 100%)',
+                              color: '#1C1200', fontWeight: 800, fontSize: 15,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
+                              boxShadow: '0 4px 22px rgba(245,168,0,0.45)',
+                            }}
+                          >
+                            <IonIcon icon={timerOutline} style={{ fontSize: 20 }} />
+                            Confirmer + Temps de prépa
+                          </button>
+                        )}
+                        {nextAction && (
+                          <button
+                            onClick={() => handleStatusChange(order._id, nextAction.status)}
+                            style={{
+                              width: '100%', height: 54, borderRadius: 15, border: 'none', cursor: 'pointer',
+                              background: nextAction.gradient,
+                              color: '#FFFFFF', fontWeight: 800, fontSize: 15,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
+                              boxShadow: `0 4px 22px ${nextAction.shadow}`,
+                            }}
+                          >
+                            <IonIcon icon={arrowForwardOutline} style={{ fontSize: 20 }} />
+                            {nextAction.label}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Updating */}
+                    {isUpdating && (
+                      <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                        <IonSpinner name="dots" style={{ color: '#F5A800', width: 24, height: 24 }} />
+                        <span style={{ fontSize: 13, color: T.text2, fontWeight: 500 }}>Mise à jour…</span>
+                      </div>
+                    )}
+
+                    {/* Bottom bar */}
+                    <div style={{
+                      borderTop: `1px solid ${T.divider}`,
+                      display: 'flex', alignItems: 'center',
+                      padding: '0 4px 0 14px', minHeight: 46,
+                    }}>
+                      {!isUpdating && (
+                        <IonSelect
+                          value={order.status}
+                          onIonChange={e => handleStatusChange(order._id, e.detail.value!)}
+                          interface="action-sheet"
+                          interfaceOptions={{ header: `Commande #${order.orderNumber}` }}
+                          style={{
+                            '--padding-start': '0px',
+                            '--highlight-color-focused': '#F5A800',
+                            '--color': T.selectColor,
+                            fontSize: 12, fontWeight: 600, flex: 1,
+                          }}
+                        >
+                          {ORDER_STATUSES.map(os => (
+                            <IonSelectOption key={os.value} value={os.value}>{os.label}</IonSelectOption>
+                          ))}
+                        </IonSelect>
+                      )}
+                      {hasDetails && (
+                        <button
+                          onClick={() => setExpandedId(isExpanded ? null : order._id)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 4,
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            padding: '12px 14px 12px 10px', flexShrink: 0,
+                            color: isExpanded ? '#F5A800' : T.text3,
+                            fontSize: 12, fontWeight: 600,
+                          }}
+                        >
+                          <span>{isExpanded ? 'Masquer' : 'Détails'}</span>
+                          <IonIcon icon={isExpanded ? chevronUpOutline : chevronDownOutline} style={{ fontSize: 13 }} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Expandable details */}
+                    {isExpanded && (
+                      <div style={{
+                        padding: '14px 14px 18px',
+                        borderTop: `1px solid ${T.divider}`,
+                        display: 'flex', flexDirection: 'column', gap: 8,
+                        animation: 'slideUp 0.2s ease-out',
+                      }}>
+                        {order.type === 'delivery' && order.customer.address && (() => {
+                          const mapsUrl = order.customer.latitude && order.customer.longitude
+                            ? `https://www.google.com/maps/dir/?api=1&destination=${order.customer.latitude},${order.customer.longitude}`
+                            : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.customer.address)}`;
+                          return (
+                            <a
+                              href={mapsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                display: 'flex', alignItems: 'flex-start', gap: 10,
+                                background: T.addrBg, borderRadius: 12,
+                                border: `1px solid ${T.addrBorder}`, padding: '11px 13px',
+                                textDecoration: 'none',
+                              }}
+                            >
+                              <IonIcon icon={locationOutline} style={{ fontSize: 15, color: '#60A5FA', flexShrink: 0, marginTop: 2 }} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <span style={{ fontSize: 13, color: T.addrText, lineHeight: 1.55, display: 'block' }}>
+                                  {order.customer.address}
+                                </span>
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 3,
+                                  fontSize: 10, fontWeight: 700,
+                                  color: isDark ? '#60A5FA' : '#2563EB',
+                                  marginTop: 4,
+                                }}>
+                                  <IonIcon icon={mapOutline} style={{ fontSize: 10 }} />
+                                  Ouvrir dans Maps
+                                </span>
+                              </div>
+                            </a>
+                          );
+                        })()}
+
+                        {order.items && order.items.length > 0 && (
+                          <div>
+                            <p style={{
+                              fontSize: 10, fontWeight: 800, color: T.text3,
+                              letterSpacing: 1.5, textTransform: 'uppercase', margin: '0 0 8px 2px',
+                            }}>
+                              Articles
+                            </p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {order.items.map((item, idx) => {
+                                const name      = getProductName(item.productName);
+                                const suppTotal = (item.supplements ?? []).reduce((a, x) => a + x.price, 0);
+                                const lineTotal = (item.unitPrice + suppTotal) * item.quantity;
+                                return (
+                                  <div key={idx} style={{
+                                    display: 'flex', alignItems: 'flex-start', gap: 11,
+                                    background: T.itemRowBg, borderRadius: 13, padding: '11px 13px',
+                                  }}>
+                                    <div style={{
+                                      width: 30, height: 30, borderRadius: 9, flexShrink: 0,
+                                      background: 'linear-gradient(135deg, #F5A800, #FF8C00)',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      fontWeight: 900, fontSize: 14, color: '#1C1200',
+                                    }}>
+                                      {item.quantity}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <p style={{ fontSize: 13, fontWeight: 700, color: T.itemText, margin: 0 }}>
+                                        {name}
+                                      </p>
+                                      {item.supplements && item.supplements.length > 0 && (
+                                        <div style={{ marginTop: 5, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                          {item.supplements.map((sup, si) => (
+                                            <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                              <IonIcon icon={addOutline} style={{ fontSize: 9, color: '#10B981' }} />
+                                              <span style={{ fontSize: 11, color: T.suppText }}>
+                                                {sup.name?.fr ?? sup.name?.ar ?? '—'}
+                                                {sup.price > 0 ? ` +${sup.price.toFixed(2)} DT` : ''}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {item.notes && (
+                                        <p style={{ fontSize: 11, color: T.text3, fontStyle: 'italic', margin: '5px 0 0' }}>
+                                          {item.notes}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                      <p style={{ fontSize: 13, fontWeight: 700, color: T.text1, margin: 0 }}>
+                                        {lineTotal.toFixed(2)}
+                                      </p>
+                                      <p style={{ fontSize: 10, color: T.text2, margin: 0 }}>DT</p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            <div style={{
+                              background: T.totalBg, borderRadius: 13,
+                              padding: '11px 14px', marginTop: 8,
+                              border: `1px solid ${T.totalBorder}`,
+                            }}>
+                              {order.subtotal !== undefined && order.subtotal !== order.total && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 7 }}>
+                                  <span style={{ fontSize: 12, color: '#6B7280' }}>Sous-total</span>
+                                  <span style={{ fontSize: 12, color: '#9CA3AF' }}>{order.subtotal.toFixed(2)} DT</span>
+                                </div>
+                              )}
+                              {order.deliveryCompany?.name && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 7 }}>
+                                  <span style={{ fontSize: 12, color: '#6B7280' }}>
+                                    {order.deliveryCompany.name} ({order.deliveryCompany.commission}%)
+                                  </span>
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                <span style={{ fontSize: 14, fontWeight: 700, color: '#9CA3AF' }}>Total</span>
+                                <span style={{ fontSize: 24, fontWeight: 900, color: '#F5A800' }}>
+                                  {order.total.toFixed(2)} DT
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {order.notes && (
+                          <div style={{
+                            display: 'flex', alignItems: 'flex-start', gap: 10,
+                            background: T.notesBg, borderRadius: 12,
+                            border: `1px solid ${T.notesBorder}`, padding: '11px 13px',
+                          }}>
+                            <IonIcon icon={chatbubbleOutline} style={{ fontSize: 14, color: '#F5A800', flexShrink: 0, marginTop: 1 }} />
+                            <span style={{ fontSize: 12, color: T.notesText, lineHeight: 1.55 }}>
+                              {order.notes}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>

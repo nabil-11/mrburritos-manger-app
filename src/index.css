@@ -12,3 +12,47 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
+
+/* ─── Global animations ─────────────────────────────────────────────────────── */
+
+@keyframes pendingPulse {
+  0%, 100% { box-shadow: 0 0 0 0px rgba(245,168,0,0),    0 4px 20px rgba(0,0,0,0.35); }
+  50%       { box-shadow: 0 0 0 3px rgba(245,168,0,0.35), 0 4px 28px rgba(245,168,0,0.18); }
+}
+
+@keyframes latePulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(239,68,68,0.7),  0 4px 20px rgba(239,68,68,0.2); }
+  50%       { box-shadow: 0 0 0 4px rgba(239,68,68,0.9),  0 6px 32px rgba(239,68,68,0.35); }
+}
+
+@keyframes liveDot {
+  0%, 100% { opacity: 1;   transform: scale(1);   }
+  50%       { opacity: 0.3; transform: scale(1.45); }
+}
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 1;   }
+  50%       { opacity: 0.55; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes floatOrb1 {
+  0%, 100% { transform: translate(0,   0)   scale(1);    }
+  33%       { transform: translate(18px,-24px) scale(1.05); }
+  66%       { transform: translate(-12px,12px) scale(0.96); }
+}
+
+@keyframes floatOrb2 {
+  0%, 100% { transform: translate(0,   0)    scale(1);    }
+  33%       { transform: translate(-22px,16px) scale(0.95); }
+  66%       { transform: translate(14px,-20px) scale(1.04); }
+}
