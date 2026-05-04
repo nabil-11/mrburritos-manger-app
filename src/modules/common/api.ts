@@ -53,6 +53,18 @@ export const ordersService = {
     const res = await api.put(`/orders/${id}`, { status, preparationDuration });
     return res.data;
   },
+
+  create: async (data: Record<string, unknown>) => {
+    const res = await api.post('/orders', data);
+    return res.data;
+  },
+};
+
+export const productsService = {
+  getAll: async () => {
+    const res = await api.get('/products');
+    return res.data;
+  },
 };
 
 export const statisticsService = {

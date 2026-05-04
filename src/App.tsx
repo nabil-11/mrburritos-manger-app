@@ -17,10 +17,12 @@ import {
   restaurantOutline,
   logOutOutline,
   barChartOutline,
+  fastFoodOutline,
 } from 'ionicons/icons';
 import Login from './modules/auth/Login';
 import Orders from './modules/orders/Orders';
 import Statistics from './modules/statistics/Statistics';
+import Commander from './modules/commander/Commander';
 import { AuthProvider, useAuth } from './modules/auth/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { useNotifications } from './hooks/useNotifications';
@@ -41,6 +43,7 @@ setupIonicReact();
 
 const NAV_ITEMS = [
   { path: '/orders',     label: 'Commandes',    icon: restaurantOutline, color: '#F5A800' },
+  { path: '/commander',  label: 'Commander',    icon: fastFoodOutline,   color: '#FF6B00' },
   { path: '/statistics', label: 'Statistiques', icon: barChartOutline,   color: '#10B981' },
 ];
 
@@ -188,6 +191,11 @@ function AppContent() {
           path="/orders"
           exact
           render={() => (!isAuthenticated ? <Redirect to="/login" /> : <Orders />)}
+        />
+        <Route
+          path="/commander"
+          exact
+          render={() => (!isAuthenticated ? <Redirect to="/login" /> : <Commander />)}
         />
         <Route
           path="/statistics"

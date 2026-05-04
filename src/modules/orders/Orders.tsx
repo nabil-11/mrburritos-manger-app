@@ -200,11 +200,14 @@ function getOrderAge(createdAt: string, now: number): string {
 
 // ─── Countdown ring ───────────────────────────────────────────────────────────
 function CountdownRing({ endMs, totalMs, now }: { endMs: number; totalMs: number; now: number }) {
-  const remaining = endMs - now;
-  const isLate    = remaining <= 0;
-  const pct       = isLate ? 0 : Math.min(1, remaining / totalMs);
-  const mins      = Math.ceil(remaining / 60_000);
-  const r = 20, c = 2 * Math.PI * r;
+  const remaining  = endMs - now;
+  const isLate     = remaining <= 0;
+  const pct        = isLate ? 0 : Math.min(1, remaining / totalMs);
+  const totalSecs  = Math.max(0, Math.floor(remaining / 1_000));
+  const mins       = Math.floor(totalSecs / 60);
+  const secs       = totalSecs % 60;
+  const timeText   = isLate ? '!' : `${mins}:${secs.toString().padStart(2, '0')}`;
+  const r = 20, c  = 2 * Math.PI * r;
   const color = isLate ? '#EF4444' : pct > 0.5 ? '#10B981' : pct > 0.25 ? '#F59E0B' : '#EF4444';
 
   return (
@@ -215,12 +218,12 @@ function CountdownRing({ endMs, totalMs, now }: { endMs: number; totalMs: number
           <circle cx={25} cy={25} r={r} fill="none" stroke={color} strokeWidth={4}
             strokeDasharray={c} strokeDashoffset={c * (1 - pct)}
             strokeLinecap="round"
-            style={{ transition: 'stroke-dashoffset 0.9s linear, stroke 0.5s' }}
+            style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.5s' }}
           />
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 12, fontWeight: 900, color }}>
-            {isLate ? '!' : `${mins}m`}
+          <span style={{ fontSize: 10, fontWeight: 900, color, letterSpacing: -0.5 }}>
+            {timeText}
           </span>
         </div>
       </div>
@@ -638,7 +641,7 @@ export default function OrdersPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {filtered.map(order => {
                 const ss         = STATUS_STYLE[order.status] ?? STATUS_FALLBACK;
-                const timer      = prepTimers[order._id];
+                const timer      = order.status === 'confirmed' ? prepTimers[order._id] : undefined;
                 const isLate     = timer ? timer.endMs < now : false;
                 const isUpdating = updatingId === order._id;
                 const isExpanded = expandedId === order._id;

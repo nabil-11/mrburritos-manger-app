@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* ─── Navigation bar inset ────────────────────────────────────────────────────
+   --ion-safe-area-bottom is set at runtime by MainActivity.java because
+   env(safe-area-inset-bottom) always returns 0 for the Android nav bar in WebView.
+   ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  --ion-safe-area-bottom: 0px;
+}
+
 @theme {
   --color-primary: #F5A800;
   --color-primary-hover: #FF6B00;
