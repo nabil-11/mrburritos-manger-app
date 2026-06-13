@@ -1016,6 +1016,20 @@ export default function CommanderPage() {
     }
   };
 
+  // Responsive grid columns
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const onResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const gridCols =
+    windowWidth >= 1800 ? 'repeat(5, 1fr)' :
+    windowWidth >= 1400 ? 'repeat(4, 1fr)' :
+    windowWidth >= 1024 ? 'repeat(3, 1fr)' :
+    windowWidth >= 600  ? 'repeat(2, 1fr)' :
+    '1fr';
+
   // Filtered products
   const filtered = activeCat === 'all'
     ? products
@@ -1176,7 +1190,7 @@ export default function CommanderPage() {
 
         {/* ── Product grid ── */}
         <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 1fr',
+          display: 'grid', gridTemplateColumns: gridCols,
           gap: 12, padding: '0 16px',
           paddingBottom: cartCount > 0 ? 100 : 24,
         }}>

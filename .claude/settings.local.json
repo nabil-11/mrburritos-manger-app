@@ -34,6 +34,9 @@
       "Bash(adb:*)",
       "Bash(npx tsc:*)",
       "Bash(powershell.exe -Command \"Set-Location ''c:\\\\Users\\\\Traveltodo\\\\Desktop\\\\Nouveau dossier\\\\mr-burritos-mobile\\\\manager-app\\\\android''; & ''.\\\\gradlew.bat'' assembleDebug 2>&1 | Select-Object -Last 20\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Traveltodo\\Desktop\\Nouveau dossier\\mr-burritos-mobile\\manager-app"
     ]
   }
 }
