@@ -19,6 +19,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Order, ORDER_STATUSES, getStatusLabel, getProductName } from './types';
 import { NEW_ORDER_EVENT } from '../../hooks/useNotifications';
+import { useOrderStream } from '../../hooks/useOrderStream';
 import { startAlarm, stopAlarm, unlockAudio } from '../../hooks/useAlarm';
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -190,48 +191,14 @@ function makeTokens(isDark: boolean) {
 // ─── Order age helper ─────────────────────────────────────────────────────────
 function getOrderAge(createdAt: string, now: number): string {
   const diffMs   = now - new Date(createdAt).getTime();
-  const diffMins = Math.floor(diffMs / 60_000);
-  if (diffMins < 1)  return "à l'instant";
-  if (diffMins < 60) return `${diffMins}m`;
+  const diffSecs = Math.floor(diffMs / 1_000);
+  if (diffSecs < 60)  return `${diffSecs}s`;
+  const diffMins = Math.floor(diffSecs / 60);
+  const secs     = diffSecs % 60;
+  if (diffMins < 60)  return `${diffMins}m ${secs}s`;
   const h = Math.floor(diffMins / 60);
   const m = diffMins % 60;
-  return `${h}h${m ? `${m}m` : ''}`;
-}
-
-// ─── Countdown ring ───────────────────────────────────────────────────────────
-function CountdownRing({ endMs, totalMs, now }: { endMs: number; totalMs: number; now: number }) {
-  const remaining  = endMs - now;
-  const isLate     = remaining <= 0;
-  const pct        = isLate ? 0 : Math.min(1, remaining / totalMs);
-  const totalSecs  = Math.max(0, Math.floor(remaining / 1_000));
-  const mins       = Math.floor(totalSecs / 60);
-  const secs       = totalSecs % 60;
-  const timeText   = isLate ? '!' : `${mins}:${secs.toString().padStart(2, '0')}`;
-  const r = 20, c  = 2 * Math.PI * r;
-  const color = isLate ? '#EF4444' : pct > 0.5 ? '#10B981' : pct > 0.25 ? '#F59E0B' : '#EF4444';
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, userSelect: 'none' }}>
-      <div style={{ position: 'relative', width: 50, height: 50 }}>
-        <svg width={50} height={50} style={{ transform: 'rotate(-90deg)' }}>
-          <circle cx={25} cy={25} r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={4} />
-          <circle cx={25} cy={25} r={r} fill="none" stroke={color} strokeWidth={4}
-            strokeDasharray={c} strokeDashoffset={c * (1 - pct)}
-            strokeLinecap="round"
-            style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.5s' }}
-          />
-        </svg>
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 10, fontWeight: 900, color, letterSpacing: -0.5 }}>
-            {timeText}
-          </span>
-        </div>
-      </div>
-      <span style={{ fontSize: 9, fontWeight: 800, color, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-        {isLate ? 'Retard' : 'restant'}
-      </span>
-    </div>
-  );
+  return `${h}h${m ? ` ${m}m` : ''}`;
 }
 
 // ─── Skeleton loading card ────────────────────────────────────────────────────
@@ -262,8 +229,11 @@ function SkeletonCard({ t }: { t: ReturnType<typeof makeTokens> }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function OrdersPage() {
   const history  = useHistory();
-  const { logout } = useAuth();
+  const { logout, isAuthenticated } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+
+  // ── Real-time order stream (SSE) ─────────────────────────────────────────
+  useOrderStream(isAuthenticated);
   const T = makeTokens(isDark);
 
   const [orders,        setOrders]       = useState<Order[]>([]);
@@ -648,17 +618,27 @@ export default function OrdersPage() {
                 const hasDetails = !!(order.customer.address || (order.items && order.items.length > 0) || order.notes);
                 const nextAction = QUICK_NEXT[order.status];
 
+                // Compact timer text for confirmed orders
+                const timerText = (() => {
+                  if (!timer) return null;
+                  if (isLate) return { label: 'En retard', color: '#EF4444' };
+                  const rem  = Math.max(0, Math.floor((timer.endMs - now) / 1_000));
+                  const m    = Math.floor(rem / 60);
+                  const s    = rem % 60;
+                  const pct  = (timer.endMs - now) / timer.totalMs;
+                  const color = pct > 0.5 ? '#10B981' : pct > 0.25 ? '#F59E0B' : '#EF4444';
+                  return { label: `${m}:${s.toString().padStart(2, '0')} restant`, color };
+                })();
+
                 return (
                   <div
                     key={order._id}
                     style={{
-                      borderRadius: 20,
+                      borderRadius: 14,
                       overflow: 'hidden',
                       background: T.cardBg,
                       border: `1px solid ${T.cardBorder}`,
-                      boxShadow: isUpdating || (!isLate && order.status !== 'pending')
-                        ? T.cardShadow
-                        : undefined,
+                      boxShadow: T.cardShadow,
                       animation: !isUpdating
                         ? isLate
                           ? 'latePulse 1.5s ease-in-out infinite'
@@ -670,214 +650,194 @@ export default function OrdersPage() {
                       transition: 'opacity 0.15s, background 0.25s, border-color 0.25s',
                     }}
                   >
-                    {/* Color stripe / timer bar */}
+                    {/* Top stripe — status color or live timer bar */}
                     {timer ? (
-                      <div style={{ height: 5, background: isDark ? 'rgba(255,255,255,0.04)' : '#E7E5E4', position: 'relative', overflow: 'hidden' }}>
+                      <div style={{ height: 3, background: isDark ? 'rgba(255,255,255,0.05)' : '#EBEBEB', position: 'relative', overflow: 'hidden' }}>
                         <div style={{
                           position: 'absolute', left: 0, top: 0, height: '100%',
                           width: `${Math.max(0, Math.min(100, ((timer.endMs - now) / timer.totalMs) * 100))}%`,
-                          background: isLate ? '#EF4444' : now > timer.endMs - timer.totalMs * 0.25 ? '#F59E0B' : '#10B981',
+                          background: isLate ? '#EF4444' : (timer.endMs - now) / timer.totalMs > 0.25 ? '#10B981' : '#F59E0B',
                           transition: 'width 1s linear',
-                          boxShadow: isLate ? '0 0 8px rgba(239,68,68,0.5)' : '0 0 6px rgba(16,185,129,0.4)',
                         }} />
                       </div>
                     ) : (
-                      <div style={{ height: 4, background: ss.gradient }} />
+                      <div style={{ height: 3, background: ss.gradient }} />
                     )}
 
-                    {/* Card body */}
-                    <div style={{ padding: '15px 16px 14px' }}>
+                    {/* ── Card body ── */}
+                    <div style={{ padding: '11px 13px 11px' }}>
 
-                      {/* Row 1 — Meta */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 800, fontSize: 13, color: '#F5A800', letterSpacing: 0.3 }}>
+                      {/* Row 1 — #number · age · type */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontWeight: 800, fontSize: 11, color: '#F5A800', letterSpacing: 0.2 }}>
                             #{order.orderNumber}
                           </span>
                           <span style={{
-                            fontSize: 10, fontWeight: 600, color: T.ageText,
-                            background: T.ageBg, borderRadius: 999, padding: '2px 8px',
+                            fontSize: 10, fontWeight: 500, color: T.ageText,
+                            background: T.ageBg, borderRadius: 999, padding: '1px 7px',
+                            fontVariantNumeric: 'tabular-nums',
                           }}>
                             {getOrderAge(order.createdAt, now)}
                           </span>
                           {order.status === 'pending' && (
                             <span style={{
-                              fontSize: 9, fontWeight: 800, letterSpacing: 1,
+                              fontSize: 9, fontWeight: 800, letterSpacing: 0.5,
                               color: '#92400E', background: '#FDE68A',
-                              borderRadius: 999, padding: '2px 8px', textTransform: 'uppercase',
+                              borderRadius: 999, padding: '1px 6px', textTransform: 'uppercase',
                             }}>
                               Nouveau
                             </span>
                           )}
                         </div>
                         <div style={{
-                          display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+                          display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0,
                           background: order.type === 'delivery' ? 'rgba(16,185,129,0.1)' : 'rgba(139,92,246,0.1)',
-                          border: `1px solid ${order.type === 'delivery' ? 'rgba(16,185,129,0.2)' : 'rgba(139,92,246,0.2)'}`,
-                          color: order.type === 'delivery' ? '#34D399' : '#A78BFA',
-                          borderRadius: 999, padding: '5px 11px',
-                          fontSize: 11, fontWeight: 700,
+                          border: `1px solid ${order.type === 'delivery' ? 'rgba(16,185,129,0.18)' : 'rgba(139,92,246,0.18)'}`,
+                          color: order.type === 'delivery' ? '#10B981' : '#8B5CF6',
+                          borderRadius: 7, padding: '3px 8px', fontSize: 10, fontWeight: 700,
                         }}>
-                          <IonIcon icon={order.type === 'delivery' ? bicycleOutline : bagOutline} style={{ fontSize: 13 }} />
-                          {order.type === 'delivery' ? 'Livraison' : 'À emporter'}
+                          <IonIcon icon={order.type === 'delivery' ? bicycleOutline : bagOutline} style={{ fontSize: 11 }} />
+                          {order.type === 'delivery' ? 'Livraison' : 'Emporter'}
                         </div>
                       </div>
 
-                      {/* Row 2 — Customer + Price */}
-                      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, marginBottom: 11 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{
-                            fontSize: 22, fontWeight: 900, color: T.text1,
-                            letterSpacing: -0.5, lineHeight: 1.15, margin: 0,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          }}>
-                            {order.customer.name}
-                          </p>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
-                            <IonIcon icon={callOutline} style={{ fontSize: 11, color: T.text3 }} />
-                            <span style={{ fontSize: 12, color: T.text2, fontWeight: 500 }}>
-                              {order.customer.phone}
-                            </span>
-                            {order.type === 'delivery' && order.customer.address && (() => {
-                              const mapsUrl = order.customer.latitude && order.customer.longitude
-                                ? `https://www.google.com/maps/dir/?api=1&destination=${order.customer.latitude},${order.customer.longitude}`
-                                : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.customer.address)}`;
-                              return (
-                                <a
-                                  href={mapsUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={e => e.stopPropagation()}
-                                  style={{
-                                    display: 'flex', alignItems: 'center', gap: 4,
-                                    background: T.addrBg,
-                                    border: `1px solid ${T.addrBorder}`,
-                                    color: isDark ? '#60A5FA' : '#2563EB',
-                                    borderRadius: 999, padding: '3px 10px',
-                                    fontSize: 11, fontWeight: 700,
-                                    textDecoration: 'none',
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  <IonIcon icon={mapOutline} style={{ fontSize: 12 }} />
-                                  Carte
-                                </a>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                          {timer ? (
-                            <CountdownRing endMs={timer.endMs} totalMs={timer.totalMs} now={now} />
-                          ) : (
-                            <>
-                              <div style={{
-                                fontSize: 32, fontWeight: 900, color: T.text1,
-                                letterSpacing: -1.5, lineHeight: 1,
-                              }}>
-                                {order.total.toFixed(2)}
-                              </div>
-                              <div style={{
-                                fontSize: 11, fontWeight: 800, color: '#F5A800',
-                                letterSpacing: 2.5, marginTop: 2,
-                              }}>
-                                DT
-                              </div>
-                            </>
-                          )}
+                      {/* Row 2 — Customer name · price (always fixed here) */}
+                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
+                        <p style={{
+                          fontSize: 15, fontWeight: 700, color: T.text1,
+                          letterSpacing: -0.2, lineHeight: 1.2, margin: 0,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0,
+                        }}>
+                          {order.customer.name}
+                        </p>
+                        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                          <span style={{ fontSize: 17, fontWeight: 800, color: T.text1, letterSpacing: -0.6, fontVariantNumeric: 'tabular-nums' }}>
+                            {order.total.toFixed(2)}
+                          </span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#F5A800', letterSpacing: 1.5 }}>DT</span>
                         </div>
                       </div>
 
-                      {/* Row 3 — Items + Status */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {order.items && order.items.length > 0 && (
-                          <div style={{
-                            display: 'flex', alignItems: 'center', gap: 5,
-                            background: T.surf2, borderRadius: 999, padding: '5px 12px',
-                          }}>
-                            <span style={{ fontSize: 14, fontWeight: 900, color: '#F5A800' }}>
-                              {order.items.length}
-                            </span>
-                            <span style={{ fontSize: 10, fontWeight: 600, color: T.text2 }}>
-                              article{order.items.length > 1 ? 's' : ''}
+                      {/* Row 3 — Phone · map · status/timer */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+                          <IonIcon icon={callOutline} style={{ fontSize: 10, color: T.text3, flexShrink: 0 }} />
+                          <span style={{ fontSize: 11, color: T.text2, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {order.customer.phone}
+                          </span>
+                          {order.type === 'delivery' && order.customer.address && (() => {
+                            const mapsUrl = order.customer.latitude && order.customer.longitude
+                              ? `https://www.google.com/maps/dir/?api=1&destination=${order.customer.latitude},${order.customer.longitude}`
+                              : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.customer.address)}`;
+                            return (
+                              <a
+                                href={mapsUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={e => e.stopPropagation()}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0,
+                                  background: T.addrBg, border: `1px solid ${T.addrBorder}`,
+                                  color: isDark ? '#60A5FA' : '#2563EB',
+                                  borderRadius: 6, padding: '2px 7px',
+                                  fontSize: 10, fontWeight: 700, textDecoration: 'none',
+                                }}
+                              >
+                                <IonIcon icon={mapOutline} style={{ fontSize: 10 }} />
+                                Map
+                              </a>
+                            );
+                          })()}
+                        </div>
+                        {/* Status badge or timer countdown */}
+                        {timerText ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                            <IonIcon icon={timerOutline} style={{ fontSize: 11, color: timerText.color }} />
+                            <span style={{
+                              fontSize: 11, fontWeight: 700, color: timerText.color,
+                              fontVariantNumeric: 'tabular-nums',
+                            }}>
+                              {timerText.label}
                             </span>
                           </div>
-                        )}
-
-                        {timer && (
-                          <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                            <div style={{ fontSize: 28, fontWeight: 900, color: T.text1, letterSpacing: -1, lineHeight: 1 }}>
-                              {order.total.toFixed(2)}
-                            </div>
-                            <div style={{ fontSize: 10, fontWeight: 800, color: '#F5A800', letterSpacing: 2.5 }}>DT</div>
-                          </div>
-                        )}
-
-                        {!timer && (
+                        ) : (
                           <div style={{
-                            marginLeft: 'auto',
-                            display: 'flex', alignItems: 'center', gap: 5,
-                            padding: '5px 11px', borderRadius: 999,
-                            background: `${ss.dot}14`, border: `1px solid ${ss.dot}30`,
+                            display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
+                            padding: '2px 8px', borderRadius: 6,
+                            background: `${ss.dot}12`, border: `1px solid ${ss.dot}28`,
                           }}>
-                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: ss.dot }} />
-                            <span style={{ fontSize: 11, fontWeight: 700, color: ss.dot }}>
+                            <div style={{ width: 5, height: 5, borderRadius: '50%', background: ss.dot }} />
+                            <span style={{ fontSize: 10, fontWeight: 700, color: ss.dot }}>
                               {getStatusLabel(order.status)}
                             </span>
                           </div>
                         )}
                       </div>
-                    </div>
 
-                    {/* Primary CTA */}
-                    {!isUpdating && (order.status === 'pending' || nextAction) && (
-                      <div style={{ padding: '0 12px 12px' }}>
-                        {order.status === 'pending' && (
+                      {/* Row 4 — Articles count · action button */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {order.items && order.items.length > 0 && (
+                            <div style={{
+                              display: 'flex', alignItems: 'center', gap: 4,
+                              background: T.surf2, borderRadius: 7, padding: '3px 8px',
+                            }}>
+                              <span style={{ fontSize: 11, fontWeight: 800, color: '#F5A800' }}>{order.items.length}</span>
+                              <span style={{ fontSize: 10, color: T.text2, fontWeight: 500 }}>art.</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {!isUpdating && order.status === 'pending' && (
                           <button
                             onClick={() => setPrepSheet({ open: true, orderId: order._id, orderNumber: order.orderNumber })}
                             style={{
-                              width: '100%', height: 54, borderRadius: 15, border: 'none', cursor: 'pointer',
-                              background: 'linear-gradient(135deg, #F5A800 0%, #FF8C00 100%)',
-                              color: '#1C1200', fontWeight: 800, fontSize: 15,
-                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
-                              boxShadow: '0 4px 22px rgba(245,168,0,0.45)',
+                              height: 30, padding: '0 12px', borderRadius: 8,
+                              border: 'none', cursor: 'pointer',
+                              background: 'linear-gradient(135deg, #F5A800, #FF8C00)',
+                              color: '#1C1200', fontWeight: 700, fontSize: 11,
+                              display: 'flex', alignItems: 'center', gap: 4,
+                              boxShadow: '0 1px 8px rgba(245,168,0,0.3)',
                             }}
                           >
-                            <IonIcon icon={timerOutline} style={{ fontSize: 20 }} />
-                            Confirmer + Temps de prépa
+                            <IonIcon icon={timerOutline} style={{ fontSize: 12 }} />
+                            Confirmer
                           </button>
                         )}
-                        {nextAction && (
+
+                        {!isUpdating && nextAction && (
                           <button
                             onClick={() => handleStatusChange(order._id, nextAction.status)}
                             style={{
-                              width: '100%', height: 54, borderRadius: 15, border: 'none', cursor: 'pointer',
+                              height: 30, padding: '0 12px', borderRadius: 8,
+                              border: 'none', cursor: 'pointer',
                               background: nextAction.gradient,
-                              color: '#FFFFFF', fontWeight: 800, fontSize: 15,
-                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
-                              boxShadow: `0 4px 22px ${nextAction.shadow}`,
+                              color: '#fff', fontWeight: 700, fontSize: 11,
+                              display: 'flex', alignItems: 'center', gap: 4,
+                              boxShadow: `0 1px 8px ${nextAction.shadow}`,
                             }}
                           >
-                            <IonIcon icon={arrowForwardOutline} style={{ fontSize: 20 }} />
-                            {nextAction.label}
+                            <IonIcon icon={arrowForwardOutline} style={{ fontSize: 12 }} />
+                            {nextAction.status === 'preparing' ? 'Préparer' : nextAction.status === 'ready' ? 'Prête !' : 'Livré'}
                           </button>
                         )}
                       </div>
-                    )}
+                    </div>
 
-                    {/* Updating */}
+                    {/* Updating spinner */}
                     {isUpdating && (
-                      <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                        <IonSpinner name="dots" style={{ color: '#F5A800', width: 24, height: 24 }} />
-                        <span style={{ fontSize: 13, color: T.text2, fontWeight: 500 }}>Mise à jour…</span>
+                      <div style={{ padding: '9px 13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                        <IonSpinner name="dots" style={{ color: '#F5A800', width: 20, height: 20 }} />
+                        <span style={{ fontSize: 11, color: T.text2, fontWeight: 500 }}>Mise à jour…</span>
                       </div>
                     )}
 
-                    {/* Bottom bar */}
+                    {/* Footer bar */}
                     <div style={{
                       borderTop: `1px solid ${T.divider}`,
                       display: 'flex', alignItems: 'center',
-                      padding: '0 4px 0 14px', minHeight: 46,
+                      padding: '0 2px 0 12px', minHeight: 38,
                     }}>
                       {!isUpdating && (
                         <IonSelect
@@ -889,7 +849,7 @@ export default function OrdersPage() {
                             '--padding-start': '0px',
                             '--highlight-color-focused': '#F5A800',
                             '--color': T.selectColor,
-                            fontSize: 12, fontWeight: 600, flex: 1,
+                            fontSize: 11, fontWeight: 600, flex: 1,
                           }}
                         >
                           {ORDER_STATUSES.map(os => (
@@ -901,15 +861,15 @@ export default function OrdersPage() {
                         <button
                           onClick={() => setExpandedId(isExpanded ? null : order._id)}
                           style={{
-                            display: 'flex', alignItems: 'center', gap: 4,
+                            display: 'flex', alignItems: 'center', gap: 3,
                             background: 'none', border: 'none', cursor: 'pointer',
-                            padding: '12px 14px 12px 10px', flexShrink: 0,
+                            padding: '9px 11px 9px 8px', flexShrink: 0,
                             color: isExpanded ? '#F5A800' : T.text3,
-                            fontSize: 12, fontWeight: 600,
+                            fontSize: 11, fontWeight: 600,
                           }}
                         >
                           <span>{isExpanded ? 'Masquer' : 'Détails'}</span>
-                          <IonIcon icon={isExpanded ? chevronUpOutline : chevronDownOutline} style={{ fontSize: 13 }} />
+                          <IonIcon icon={isExpanded ? chevronUpOutline : chevronDownOutline} style={{ fontSize: 11 }} />
                         </button>
                       )}
                     </div>
