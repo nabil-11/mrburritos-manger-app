@@ -28,7 +28,8 @@ export interface Order {
   };
   items?: OrderItem[];
   notes?: string;
-  deliveryCompany?: { name: string; commission: number };
+  deliveryCompany?: { name: string; commission: number; phone?: string };
+  deliveryFee?: number;
   createdAt: string;
   confirmedAt?: string;
   preparationDuration?: number;

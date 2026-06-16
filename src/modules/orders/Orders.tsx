@@ -458,8 +458,11 @@ export default function OrdersPage() {
   const [expandedId,    setExpandedId]   = useState<string | null>(null);
   const [newOrderAlert, setNewOrderAlert]= useState<{ open: boolean; message: string }>({ open: false, message: '' });
   const [prepTimers,    setPrepTimers]   = useState<TimerMap>(loadTimers);
-  const [prepSheet,     setPrepSheet]    = useState<{ open: boolean; orderId: string; orderNumber: string }>
+  const [prepSheet,     setPrepSheet]    = useState<{ open: boolean; orderId: string; orderNumber: string; deliveryFee?: number }>
                                            ({ open: false, orderId: '', orderNumber: '' });
+  const [deliveryFeeModal, setDeliveryFeeModal] = useState<{ open: boolean; orderId: string; orderNumber: string }>
+                                           ({ open: false, orderId: '', orderNumber: '' });
+  const [deliveryFeeValue, setDeliveryFeeValue] = useState('');
   const [now,           setNow]          = useState(Date.now());
 
   useEffect(() => {
@@ -521,13 +524,29 @@ export default function OrdersPage() {
     }
   }, [orders, fetchOrders]);
 
-  const handleConfirmWithTime = async (orderId: string, minutes: number) => {
+  const handleDeliveryFeeContinue = () => {
+    const fee = Math.max(0, Math.min(10, parseFloat(deliveryFeeValue) || 0));
+    setPrepSheet({ open: true, orderId: deliveryFeeModal.orderId, orderNumber: deliveryFeeModal.orderNumber, deliveryFee: fee });
+    setDeliveryFeeModal({ open: false, orderId: '', orderNumber: '' });
+    setDeliveryFeeValue('');
+  };
+
+  const handleConfirmWithTime = async (orderId: string, minutes: number, deliveryFee?: number) => {
     const endMs   = now + minutes * 60_000;
     const totalMs = minutes * 60_000;
     const updated = { ...prepTimers, [orderId]: { endMs, totalMs } };
     setPrepTimers(updated);
     saveTimers(updated);
-    await handleStatusChange(orderId, 'confirmed');
+    setUpdatingId(orderId);
+    try {
+      await ordersService.updateStatus(orderId, 'confirmed', minutes, deliveryFee);
+      setToast({ open: true, message: 'Statut mis à jour ✓', color: 'success' });
+      await fetchOrders();
+    } catch {
+      setToast({ open: true, message: 'Erreur de mise à jour', color: 'danger' });
+    } finally {
+      setUpdatingId(null);
+    }
     // Auto-print receipt on confirmation
     const orderToPrint = orders.find(o => o._id === orderId);
     if (orderToPrint) printOrderReceipt(orderToPrint, minutes);
@@ -568,10 +587,10 @@ export default function OrdersPage() {
         header="Temps de préparation"
         subHeader={prepSheet.orderNumber ? `Commande #${prepSheet.orderNumber}` : undefined}
         buttons={[
-          { text: '15 minutes', icon: timerOutline, handler: () => handleConfirmWithTime(prepSheet.orderId, 15) },
-          { text: '30 minutes', icon: timerOutline, handler: () => handleConfirmWithTime(prepSheet.orderId, 30) },
-          { text: '45 minutes', icon: timerOutline, handler: () => handleConfirmWithTime(prepSheet.orderId, 45) },
-          { text: '1 heure',    icon: timerOutline, handler: () => handleConfirmWithTime(prepSheet.orderId, 60) },
+          { text: '15 minutes', icon: timerOutline, handler: () => handleConfirmWithTime(prepSheet.orderId, 15, prepSheet.deliveryFee) },
+          { text: '30 minutes', icon: timerOutline, handler: () => handleConfirmWithTime(prepSheet.orderId, 30, prepSheet.deliveryFee) },
+          { text: '45 minutes', icon: timerOutline, handler: () => handleConfirmWithTime(prepSheet.orderId, 45, prepSheet.deliveryFee) },
+          { text: '1 heure',    icon: timerOutline, handler: () => handleConfirmWithTime(prepSheet.orderId, 60, prepSheet.deliveryFee) },
           { text: 'Annuler', role: 'cancel' },
         ]}
         onDidDismiss={() => setPrepSheet({ open: false, orderId: '', orderNumber: '' })}
@@ -994,6 +1013,53 @@ export default function OrdersPage() {
                         </div>
                       </div>
 
+                      {/* ── Delivery info row (company · fee · phone) ── */}
+                      {order.type === 'delivery' && (order.deliveryCompany?.name || order.deliveryFee != null || order.deliveryCompany?.phone) && (
+                        <div style={{
+                          margin: '8px 13px 0',
+                          padding: '8px 11px',
+                          borderRadius: 10,
+                          background: isDark ? 'rgba(16,185,129,0.08)' : 'rgba(220,252,231,0.7)',
+                          border: `1px solid ${isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.25)'}`,
+                          display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 14px',
+                        }}>
+                          <IonIcon icon={bicycleOutline} style={{ fontSize: 14, color: '#10B981', flexShrink: 0 }} />
+                          {order.deliveryCompany?.name && (
+                            <span style={{ fontSize: 12, fontWeight: 800, color: isDark ? '#6EE7B7' : '#065F46' }}>
+                              {order.deliveryCompany.name}
+                              {order.deliveryCompany.commission > 0 && (
+                                <span style={{ fontWeight: 500, color: T.text2, marginLeft: 4 }}>
+                                  ({order.deliveryCompany.commission}%)
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          {order.deliveryCompany?.phone && (
+                            <a
+                              href={`tel:${order.deliveryCompany.phone}`}
+                              onClick={e => e.stopPropagation()}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 4,
+                                fontSize: 12, fontWeight: 700, textDecoration: 'none',
+                                color: isDark ? '#6EE7B7' : '#065F46',
+                              }}
+                            >
+                              <IonIcon icon={callOutline} style={{ fontSize: 11 }} />
+                              {order.deliveryCompany.phone}
+                            </a>
+                          )}
+                          {order.deliveryFee != null && order.deliveryFee > 0 && (
+                            <span style={{
+                              marginLeft: 'auto', flexShrink: 0,
+                              fontSize: 13, fontWeight: 900,
+                              color: isDark ? '#6EE7B7' : '#065F46',
+                            }}>
+                              +{order.deliveryFee.toFixed(2)} DT
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                       {/* ── Timer countdown box (confirmed orders) ── */}
                       {timerText && (
                         <div style={{
@@ -1032,7 +1098,14 @@ export default function OrdersPage() {
                         <div style={{ padding: '10px 13px 0' }}>
                           {order.status === 'pending' ? (
                             <button
-                              onClick={() => setPrepSheet({ open: true, orderId: order._id, orderNumber: order.orderNumber })}
+                              onClick={() => {
+                                if (order.type === 'delivery') {
+                                  setDeliveryFeeValue('');
+                                  setDeliveryFeeModal({ open: true, orderId: order._id, orderNumber: order.orderNumber });
+                                } else {
+                                  setPrepSheet({ open: true, orderId: order._id, orderNumber: order.orderNumber });
+                                }
+                              }}
                               style={{
                                 width: '100%', height: 46, borderRadius: 12,
                                 border: 'none', cursor: 'pointer',
@@ -1258,10 +1331,31 @@ export default function OrdersPage() {
                                   </div>
                                 )}
                                 {order.deliveryCompany?.name && (
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 7 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
                                     <span style={{ fontSize: 12, color: '#6B7280' }}>
-                                      {order.deliveryCompany.name} ({order.deliveryCompany.commission}%)
+                                      Livreur — {order.deliveryCompany.name}
+                                      {order.deliveryCompany.commission > 0 && ` (${order.deliveryCompany.commission}%)`}
                                     </span>
+                                    {order.deliveryCompany.phone && (
+                                      <a
+                                        href={`tel:${order.deliveryCompany.phone}`}
+                                        onClick={e => e.stopPropagation()}
+                                        style={{
+                                          display: 'flex', alignItems: 'center', gap: 3,
+                                          fontSize: 11, fontWeight: 700, textDecoration: 'none',
+                                          color: '#10B981',
+                                        }}
+                                      >
+                                        <IonIcon icon={callOutline} style={{ fontSize: 11 }} />
+                                        {order.deliveryCompany.phone}
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
+                                {order.deliveryFee != null && order.deliveryFee > 0 && (
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 7 }}>
+                                    <span style={{ fontSize: 12, color: '#6B7280' }}>Frais de livraison</span>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: '#10B981' }}>+{order.deliveryFee.toFixed(2)} DT</span>
                                   </div>
                                 )}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -1305,6 +1399,83 @@ export default function OrdersPage() {
           onDidDismiss={() => setToast(t => ({ ...t, open: false }))}
         />
       </IonContent>
+
+      {/* ── Delivery fee custom modal (replaces IonAlert to fix value-capture bug) ── */}
+      {deliveryFeeModal.open && (
+        <div
+          onClick={() => setDeliveryFeeModal({ open: false, orderId: '', orderNumber: '' })}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '0 24px',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: isDark ? '#1E293B' : '#fff',
+              borderRadius: 20, padding: '24px 20px 20px',
+              width: '100%', maxWidth: 340,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+              border: `1px solid ${T.cardBorder}`,
+            }}
+          >
+            <p style={{ fontSize: 17, fontWeight: 800, color: T.text1, margin: '0 0 4px', textAlign: 'center' }}>
+              Frais de livraison
+            </p>
+            {deliveryFeeModal.orderNumber && (
+              <p style={{ fontSize: 12, color: T.text2, margin: '0 0 16px', textAlign: 'center' }}>
+                Commande #{deliveryFeeModal.orderNumber}
+              </p>
+            )}
+            <input
+              autoFocus
+              type="number"
+              inputMode="decimal"
+              min={0}
+              max={10}
+              placeholder="0"
+              value={deliveryFeeValue}
+              onChange={e => setDeliveryFeeValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleDeliveryFeeContinue(); }}
+              style={{
+                width: '100%', height: 56, borderRadius: 13,
+                border: `2px solid ${T.cardBorder}`,
+                background: isDark ? '#0F172A' : '#F8FAFC',
+                color: T.text1, fontSize: 26, fontWeight: 800, textAlign: 'center',
+                outline: 'none', padding: '0 16px',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            />
+            <p style={{ fontSize: 11, color: T.text3, margin: '7px 0 18px', textAlign: 'center' }}>
+              Montant en DT (0 — 10)
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setDeliveryFeeModal({ open: false, orderId: '', orderNumber: '' })}
+                style={{
+                  flex: 1, height: 46, borderRadius: 12,
+                  border: `1px solid ${T.cardBorder}`, background: T.surf2,
+                  color: T.text2, fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleDeliveryFeeContinue}
+                style={{
+                  flex: 2, height: 46, borderRadius: 12,
+                  border: 'none', background: 'linear-gradient(135deg, #F5A800, #FF8C00)',
+                  color: '#1C1200', fontWeight: 800, fontSize: 14, cursor: 'pointer',
+                }}
+              >
+                Continuer →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </IonPage>
   );
 }
