@@ -1,20 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
-// ─── Type for the IPC bridge exposed by preload.cjs ──────────────────────────
-declare global {
-  interface Window {
-    electronAPI?: {
-      isElectron: boolean;
-      platform: string;
-      playSound: () => Promise<void>;
-      stopSound: () => Promise<void>;
-    };
-  }
-}
-
-// ─── HTML5 Audio fallback (browser / Android) ─────────────────────────────────
-// Only used when NOT running inside Electron (no IPC bridge available).
+// ─── HTML5 Audio (browser / Android) ──────────────────────────────────────────
 let ringtone: HTMLAudioElement | null = null;
 
 function getAudio(): HTMLAudioElement {
@@ -49,31 +36,18 @@ async function vibrate() {
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
- * Start the notification ringtone.
- *
- * In Electron: the main process plays the file via Windows MediaPlayer (IPC).
- *   → Zero renderer audio restrictions, works without any user gesture.
- *
- * In browser / Android: HTML5 <audio loop> fallback.
+ * Start the notification ringtone via HTML5 <audio loop>.
  *
  * Auto-stops after 3 minutes if the manager does not dismiss the alert.
  */
 export function startAlarm() {
   stopAlarm(); // clear any previous alarm first
 
-  if (window.electronAPI?.playSound) {
-    // ── Electron path: main process plays the sound ──
-    window.electronAPI.playSound().catch((err: unknown) => {
-      console.error('[Alarm] IPC sound:play failed:', err);
-    });
-  } else {
-    // ── Browser / Android fallback ──
-    const audio = getAudio();
-    audio.currentTime = 0;
-    audio.play().catch((err: unknown) => {
-      console.error('[Alarm] audio.play() failed:', err);
-    });
-  }
+  const audio = getAudio();
+  audio.currentTime = 0;
+  audio.play().catch((err: unknown) => {
+    console.error('[Alarm] audio.play() failed:', err);
+  });
 
   vibrate();
 
@@ -88,9 +62,7 @@ export function startAlarm() {
 export function stopAlarm() {
   if (alarmTimeout !== null) { clearTimeout(alarmTimeout); alarmTimeout = null; }
 
-  if (window.electronAPI?.stopSound) {
-    window.electronAPI.stopSound().catch(() => {});
-  } else if (ringtone) {
+  if (ringtone) {
     ringtone.pause();
     ringtone.currentTime = 0;
   }

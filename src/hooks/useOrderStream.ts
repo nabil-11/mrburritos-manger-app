@@ -2,14 +2,24 @@
  * useOrderStream
  *
  * Maintains a persistent Server-Sent Events connection to the backend
- * (/api/orders/stream).  When the server pushes a "new-order" event this
- * hook plays the alarm and dispatches the app-wide NEW_ORDER_EVENT so that
- * the Orders page can react exactly as it does for FCM push notifications.
+ * (/api/orders/stream).
+ *
+ * The backend now uses an in-process event bus: as soon as a customer places
+ * an order the POST route emits on the bus, the SSE handler picks it up
+ * instantly (< 10 ms) and pushes it here — no polling delay.
+ * A 500 ms DB-poll fallback on the server side catches orders that arrive via
+ * a different server instance.
+ *
+ * Why SSE instead of WebSocket?
+ *   Next.js Route Handlers are serverless functions: WebSocket connections
+ *   close immediately after the response is generated.  SSE (streaming
+ *   ReadableStream response) is the only persistent push mechanism that works
+ *   in this environment.  For order notifications (server → client only) SSE
+ *   is the correct protocol choice.
  *
  * Why fetch instead of EventSource?
- *   EventSource does not support custom request headers, so we cannot send
- *   the JWT `Authorization` header.  Using fetch + ReadableStream gives us
- *   full control while still reading the raw SSE byte stream.
+ *   EventSource does not support custom request headers.  Using fetch +
+ *   ReadableStream lets us send the JWT Authorization header.
  */
 
 import { useEffect } from 'react';
@@ -17,8 +27,8 @@ import { NEW_ORDER_EVENT } from './useNotifications';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:3000/api';
 
-/** How long to wait before reconnecting after an unexpected disconnection. */
-const RECONNECT_DELAY_MS = 5_000;
+/** Reconnect delay after an unexpected disconnection. */
+const RECONNECT_DELAY_MS = 3_000;
 
 export function useOrderStream(enabled: boolean) {
   useEffect(() => {
@@ -26,15 +36,12 @@ export function useOrderStream(enabled: boolean) {
 
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let abortController = new AbortController();
-    // Tracks the createdAt of the last received order so we don't re-emit
-    // duplicates when we reconnect after a dropout.
     let lastOrderTime = new Date().toISOString();
 
     async function connect() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      // Fresh controller for each connection attempt
       abortController = new AbortController();
 
       try {
@@ -63,13 +70,11 @@ export function useOrderStream(enabled: boolean) {
 
           buffer += decoder.decode(value, { stream: true });
 
-          // SSE messages are separated by a blank line (\n\n)
+          // SSE messages are separated by \n\n
           const parts = buffer.split('\n\n');
-          // Keep any incomplete trailing fragment for the next read
           buffer = parts.pop() ?? '';
 
           for (const part of parts) {
-            // Skip empty parts and SSE comments (heartbeat pings start with ":")
             if (!part.trim() || part.startsWith(':')) continue;
 
             let eventType = 'message';
@@ -87,33 +92,37 @@ export function useOrderStream(enabled: boolean) {
               try {
                 const order = JSON.parse(data);
 
-                // Advance the cursor so reconnects don't replay this order
-                if (order.createdAt) {
-                  lastOrderTime = order.createdAt;
-                }
+                // Advance cursor so reconnects don't replay this order
+                if (order.createdAt) lastOrderTime = order.createdAt;
 
-                const typeLabel =
-                  order.type === 'delivery' ? 'Livraison' : 'À emporter';
+                const typeLabel = order.type === 'delivery' ? 'Livraison' : 'À emporter';
 
+                // Dispatch with full order payload so Orders.tsx can prepend
+                // it to the list instantly without an extra HTTP request.
                 window.dispatchEvent(
                   new CustomEvent(NEW_ORDER_EVENT, {
                     detail: {
                       title: '🌯 Nouvelle commande !',
                       body: `#${order.orderNumber} — ${typeLabel} — ${order.total} DT`,
+                      order,
                     },
                   })
                 );
               } catch {
-                // Malformed JSON — ignore and continue
+                // Malformed JSON — ignore
               }
             }
           }
         }
-      } catch (err: unknown) {
-        // AbortError means we intentionally closed the connection (cleanup)
-        if (err instanceof Error && err.name === 'AbortError') return;
 
-        // Any other error: schedule a reconnect
+        // Stream ended cleanly (server closed it — e.g. Vercel 30s function timeout).
+        // This is NOT an error, but we must reconnect or new orders will never arrive.
+        if (!abortController.signal.aborted) {
+          reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        // Network error or bad HTTP status — reconnect after a short delay
         reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
       }
     }

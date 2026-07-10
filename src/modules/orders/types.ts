@@ -30,6 +30,7 @@ export interface Order {
   notes?: string;
   deliveryCompany?: { name: string; commission: number; phone?: string };
   deliveryFee?: number;
+  assignedDelivery?: { _id: string; name: string; phone: string } | string | null;
   createdAt: string;
   confirmedAt?: string;
   preparationDuration?: number;
