@@ -82,7 +82,9 @@ export const statisticsService = {
 // Backend endpoint: POST /notifications/register-token  { token: string, platform?: string, phone?: string }
 export const notificationsService = {
   registerToken: async (token: string, phone?: string) => {
-    await api.post('/notifications/register-token', { token, phone });
+    // role: 'manager' so the backend can target manager/admin devices
+    // (e.g. "order delivered" pushes) without spamming delivery devices.
+    await api.post('/notifications/register-token', { token, phone, role: 'manager' });
   },
 };
 

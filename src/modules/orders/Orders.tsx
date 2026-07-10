@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   IonPage, IonContent, IonRefresher, IonRefresherContent,
-  IonSelect, IonSelectOption,
   IonSearchbar, IonSpinner, IonToast, IonActionSheet,
-  IonMenuButton, IonHeader, IonToolbar, IonIcon,
+  IonHeader, IonToolbar, IonIcon,
+  IonItem, IonSelect, IonSelectOption,
 } from '@ionic/react';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import {
   restaurantOutline, bicycleOutline, callOutline, locationOutline, mapOutline,
   chatbubbleOutline, chevronDownOutline, chevronUpOutline, logOutOutline,
@@ -17,9 +19,12 @@ import { ordersService, authService } from '../common/api';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Order, ORDER_STATUSES, getStatusLabel, getProductName } from './types';
-import { NEW_ORDER_EVENT } from '../../hooks/useNotifications';
+import { NEW_ORDER_EVENT, ORDER_DELIVERED_EVENT } from '../../hooks/useNotifications';
 import { useOrderStream } from '../../hooks/useOrderStream';
 import { startAlarm, stopAlarm, unlockAudio } from '../../hooks/useAlarm';
+import { PENDING_COUNT_EVENT } from '../../components/BottomNav';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 // ─── Single accent — everything else is neutral ──────────────────────────────
 const PRIMARY = '#F5A800';
@@ -77,63 +82,39 @@ function orderAge(createdAt: string, now: number): string {
   return `${h}h${m % 60 ? ` ${m % 60}m` : ''}`;
 }
 
+/**
+ * An order is "en retard" ONLY while it is still being handled by the kitchen
+ * (confirmed / preparing) and past its prep deadline. Delivered / ready /
+ * cancelled orders are never late — this prevents stale localStorage timers
+ * from counting completed orders as late in the header badge.
+ */
+function isOrderLate(o: Order, timers: TimerMap, now: number): boolean {
+  if (o.status !== 'confirmed' && o.status !== 'preparing') return false;
+  const timer = timers[o._id] ?? (o.confirmedAt && o.preparationDuration
+    ? { endMs: new Date(o.confirmedAt).getTime() + o.preparationDuration * 60000 }
+    : null);
+  return timer ? timer.endMs < now : false;
+}
+
 const mapsUrl = (o: Order) =>
   o.customer.latitude && o.customer.longitude
     ? `https://www.google.com/maps/dir/?api=1&destination=${o.customer.latitude},${o.customer.longitude}`
     : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(o.customer.address ?? '')}`;
 
-// ─── Thermal receipt printer (80 mm) ─────────────────────────────────────────
+// ─── Thermal receipt printing (80 mm) ────────────────────────────────────────
+// The in-app WebView does NOT support window.print(), so the receipt is served
+// as printable HTML by the backend (/api/orders/:id/receipt) and opened in a
+// real browser where Android's print framework (any printer / Save as PDF) works:
+//   • native  → @capacitor/browser opens the system browser and auto-prints
+//   • web     → opens a new tab and auto-prints
 function printOrderReceipt(order: Order, prepMinutes?: number) {
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  const typeLabel = order.type === 'delivery' ? 'LIVRAISON' : 'A EMPORTER';
-  const rows = (order.items ?? []).map(item => {
-    const name = getProductName(item.productName);
-    const suppTotal = (item.supplements ?? []).reduce((a, x) => a + x.price, 0);
-    const lineTotal = (item.unitPrice + suppTotal) * item.quantity;
-    const suppList = (item.supplements ?? []).filter(s => s.name?.fr || s.name?.ar)
-      .map(s => `+ ${s.name?.fr ?? s.name?.ar}${s.price > 0 ? ` (${s.price.toFixed(2)})` : ''}`).join('<br>');
-    const suppHtml = suppList ? `<div class="supp">${suppList}</div>` : '';
-    const noteHtml = item.notes ? `<div class="note">"${item.notes}"</div>` : '';
-    return `<tr><td class="qty">x${item.quantity}</td><td class="name">${name}${suppHtml}${noteHtml}</td><td class="price">${lineTotal.toFixed(2)}</td></tr>`;
-  }).join('');
-  const addrHtml = order.type === 'delivery' && order.customer.address
-    ? `<tr><td class="lbl">ADRESSE</td><td class="val addr">${order.customer.address}</td></tr>` : '';
-  const notesHtml = order.notes ? `<hr class="dash"><div class="notesbox">NOTE: ${order.notes}</div>` : '';
-  const prepHtml = prepMinutes
-    ? `<div class="prep-row"><span class="prep-lbl">Temps de preparation</span><span class="prep-val">${prepMinutes >= 60 ? `${Math.floor(prepMinutes / 60)}h${prepMinutes % 60 ? ` ${prepMinutes % 60}min` : ''}` : `${prepMinutes} min`}</span></div>` : '';
-  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Commande #${order.orderNumber}</title><style>
-    *{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;font-size:13px;padding:6px 8px 24px;color:#000;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .brand{font-size:22px;font-weight:900;text-align:center;letter-spacing:2px;margin-bottom:2px}.tagline{font-size:10px;text-align:center;color:#444}
-    .dash{border:none;border-top:1.5px dashed #000;margin:7px 0}.ordnum{font-size:17px;font-weight:900;text-align:center;letter-spacing:2px;margin:5px 0 2px}
-    .datetime{font-size:11px;text-align:center;color:#333;margin-bottom:5px}.mode{font-size:15px;font-weight:900;text-align:center;border:2px solid #000;padding:5px 0;margin:7px 0;letter-spacing:1.5px}
-    .info-table{width:100%;border-collapse:collapse;margin:3px 0}.lbl{font-size:9px;color:#555;padding-bottom:1px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
-    .val{font-size:13px;font-weight:700;padding-bottom:5px}.addr{font-size:12px;line-height:1.45;word-break:break-word}
-    .section-head{font-size:9px;font-weight:900;letter-spacing:2px;text-transform:uppercase;margin:7px 0 4px;color:#444}
-    table.items{width:100%;border-collapse:collapse}.qty{width:24px;vertical-align:top;font-weight:900;font-size:13px;padding-right:5px;white-space:nowrap}
-    .name{vertical-align:top;font-size:13px;line-height:1.45;word-break:break-word}.price{text-align:right;vertical-align:top;white-space:nowrap;padding-left:5px;font-weight:800;font-size:13px;width:1%}
-    td{padding-bottom:6px}.supp{font-size:10px;color:#444;margin-top:2px}.note{font-size:10px;color:#555;font-style:italic;margin-top:2px}
-    .tot-label{font-size:17px;font-weight:900;padding-top:4px}.tot-val{font-size:17px;font-weight:900;text-align:right;padding-top:4px;white-space:nowrap}
-    .notesbox{border:1.5px dashed #000;padding:6px 8px;font-size:12px;font-style:italic;line-height:1.5;margin:5px 0;word-break:break-word}
-    .thanks{font-size:11px;text-align:center;margin-top:10px;letter-spacing:.5px}
-    .prep-row{display:flex;justify-content:space-between;align-items:center;background:#f0f0f0;border:1.5px solid #000;border-radius:3px;padding:5px 8px;margin:6px 0}.prep-lbl{font-size:11px;font-weight:700}.prep-val{font-size:14px;font-weight:900}
-    @media print{@page{size:80mm auto;margin:0}html,body{width:100%;margin:0;padding:4px 6px 20px}}
-  </style></head><body>
-    <div class="brand">MR. BURRITOS</div><div class="tagline">Gestionnaire de commandes</div><hr class="dash">
-    <div class="ordnum">COMMANDE #${order.orderNumber}</div><div class="datetime">${dateStr} a ${timeStr}</div>
-    <div class="mode">&gt;&gt;&gt; ${typeLabel} &gt;&gt;&gt;</div>${prepHtml}<hr class="dash">
-    <table class="info-table"><tbody><tr><td><div class="lbl">CLIENT</div><div class="val">${order.customer.name}</div></td>
-    <td style="text-align:right"><div class="lbl">TEL</div><div class="val">${order.customer.phone}</div></td></tr>${addrHtml}</tbody></table><hr class="dash">
-    <div class="section-head">Articles commandes</div><table class="items"><tbody>${rows}</tbody></table><hr class="dash">
-    <table style="width:100%"><tbody><tr><td class="tot-label">TOTAL</td><td class="tot-val">${order.total.toFixed(2)} DT</td></tr></tbody></table>
-    ${notesHtml}<hr class="dash"><div class="thanks">Merci pour votre commande !</div>
-  </body></html>`;
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;';
-  document.body.appendChild(iframe);
-  const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
-  if (doc) { doc.open(); doc.write(html); doc.close(); setTimeout(() => { iframe.contentWindow?.print(); setTimeout(() => document.body.removeChild(iframe), 2000); }, 450); }
+  const qs = prepMinutes ? `?prep=${prepMinutes}` : '';
+  const url = `${API_URL}/orders/${order._id}/receipt${qs}`;
+  if (Capacitor.isNativePlatform()) {
+    Browser.open({ url, presentationStyle: 'fullscreen' }).catch(() => {});
+  } else {
+    window.open(url, '_blank');
+  }
 }
 
 // ─── Small UI atoms ───────────────────────────────────────────────────────────
@@ -170,7 +151,8 @@ function OrderCard({
   order, t, isDark, now, timers, updating, expanded, onExpand, onConfirm, onDeliveryFee, onStatus,
 }: {
   order: Order; t: Tokens; isDark: boolean; now: number; timers: TimerMap; updating: boolean;
-  expanded: boolean; onExpand: () => void; onConfirm: () => void; onDeliveryFee: () => void; onStatus: (s: string) => void;
+  expanded: boolean; onExpand: () => void; onConfirm: () => void; onDeliveryFee: () => void;
+  onStatus: (s: string) => void;
 }) {
   const isPending = order.status === 'pending';
   const showTimer = order.status === 'confirmed' || order.status === 'preparing';
@@ -308,11 +290,28 @@ function OrderCard({
             )}
           </div>
           {!updating && (
-            <IonSelect value={order.status} onIonChange={e => onStatus(e.detail.value!)} interface="action-sheet"
-              interfaceOptions={{ header: `Commande #${order.orderNumber}` }}
-              style={{ '--padding-start': '0px', '--color': t.muted, fontSize: 11, fontWeight: 600, minHeight: 'auto' }}>
-              {ORDER_STATUSES.map(os => <IonSelectOption key={os.value} value={os.value}>{os.label}</IonSelectOption>)}
-            </IonSelect>
+            <IonItem
+              lines="none"
+              style={{
+                '--background': t.surface, '--min-height': '32px',
+                '--padding-start': '10px', '--inner-padding-end': '6px',
+                border: `1px solid ${t.border}`, borderRadius: 9, overflow: 'hidden',
+              } as React.CSSProperties}
+            >
+              <span slot="start" style={{ width: 7, height: 7, borderRadius: '50%', background: PRIMARY, marginRight: 8 }} />
+              <IonSelect
+                aria-label="Statut de la commande"
+                interface="action-sheet"
+                value={order.status}
+                onIonChange={e => onStatus(e.detail.value)}
+                interfaceOptions={{ header: `Statut — #${order.orderNumber}` }}
+                style={{ '--padding-start': '0px', minHeight: 'auto', fontSize: 11, fontWeight: 700 } as React.CSSProperties}
+              >
+                {ORDER_STATUSES.map(os => (
+                  <IonSelectOption key={os.value} value={os.value}>{os.label}</IonSelectOption>
+                ))}
+              </IonSelect>
+            </IonItem>
           )}
           {hasDetails && (
             <button onClick={onExpand} style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', padding: '10px 10px', color: expanded ? PRIMARY : t.faint, fontSize: 11, fontWeight: 600 }}>
@@ -439,8 +438,21 @@ export default function OrdersPage() {
     return () => window.removeEventListener(NEW_ORDER_EVENT, handle);
   }, [fetchOrders]);
 
+  // ── Order delivered by a driver → gentle toast + list update ──
   useEffect(() => {
-    const done = new Set(orders.filter(o => o.status === 'delivered' || o.status === 'cancelled').map(o => o._id));
+    const handle = (e: Event) => {
+      const { orderId, orderNumber } = (e as CustomEvent<{ orderId?: string; orderNumber?: string }>).detail ?? {};
+      if (orderId) setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status: 'delivered' } : o));
+      setToast({ open: true, message: `✅ Commande #${orderNumber ?? ''} livrée`, color: 'success' });
+      fetchOrders();
+    };
+    window.addEventListener(ORDER_DELIVERED_EVENT, handle);
+    return () => window.removeEventListener(ORDER_DELIVERED_EVENT, handle);
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    // Drop prep timers for any order no longer in the kitchen (ready/delivered/cancelled)
+    const done = new Set(orders.filter(o => o.status !== 'confirmed' && o.status !== 'preparing').map(o => o._id));
     if (!done.size) return;
     const cleaned = { ...prepTimers }; let changed = false;
     done.forEach(id => { if (cleaned[id]) { delete cleaned[id]; changed = true; } });
@@ -488,7 +500,12 @@ export default function OrdersPage() {
   }, [dateOrders, search]);
 
   const pendingCount = dateOrders.filter(o => o.status === 'pending').length;
-  const lateCount = Object.values(prepTimers).filter(t2 => t2.endMs < now).length;
+  const lateCount = dateOrders.filter(o => isOrderLate(o, prepTimers, now)).length;
+
+  // Feed the bottom-nav badge with the live pending count
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(PENDING_COUNT_EVENT, { detail: pendingCount }));
+  }, [pendingCount]);
   const statusCounts = ['pending', 'confirmed', 'preparing', 'ready']
     .map(s => ({ status: s, count: dateOrders.filter(o => o.status === s).length,
       label: s === 'pending' ? 'Attente' : s === 'confirmed' ? 'Confirmé' : s === 'preparing' ? 'Prépa' : 'Prête' }))
@@ -537,7 +554,6 @@ export default function OrdersPage() {
       <IonHeader style={{ background: t.headerBg, borderBottom: `1px solid ${t.border}` }}>
         <IonToolbar style={{ '--background': 'transparent', '--border-color': 'transparent', minHeight: 'auto', padding: '12px 14px 8px' }} onClick={unlockAudio}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
-            <IonMenuButton style={{ ...iconBtn, '--color': t.muted, margin: 0 } as React.CSSProperties} />
             <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: GRAD, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ color: '#1C1200', fontWeight: 900, fontSize: 13 }}>MR</span>
             </div>
@@ -606,7 +622,7 @@ export default function OrdersPage() {
           {TABS.map(tab => {
             const active = activeFilter === tab.value;
             const cnt = tab.value ? dateOrders.filter(o => o.status === tab.value).length : dateOrders.length;
-            const hasLate = tab.value ? dateOrders.filter(o => o.status === tab.value).some(o => prepTimers[o._id] && prepTimers[o._id].endMs < now) : lateCount > 0;
+            const hasLate = tab.value ? dateOrders.filter(o => o.status === tab.value).some(o => isOrderLate(o, prepTimers, now)) : lateCount > 0;
             return (
               <button key={tab.value} onClick={() => setActiveFilter(tab.value)}
                 style={{ height: 34, padding: '0 13px', fontSize: 12, cursor: 'pointer', borderRadius: 10, flexShrink: 0, position: 'relative', display: 'flex', alignItems: 'center', gap: 6, border: active ? 'none' : `1px solid ${t.border}`, background: active ? GRAD : t.surface, color: active ? '#1C1200' : t.muted, fontWeight: active ? 800 : 500 }}>
@@ -628,7 +644,7 @@ export default function OrdersPage() {
             <SkeletonCard t={t} /><SkeletonCard t={t} /><SkeletonCard t={t} />
           </div>
         ) : (
-          <div style={{ padding: '12px 12px 90px' }}>
+          <div style={{ padding: '12px 12px 16px' }}>
             <p style={{ margin: '0 0 10px 2px', fontSize: 12, color: t.muted }}>
               {filtered.length} commande{filtered.length !== 1 ? 's' : ''}{search && <span style={{ color: PRIMARY }}> · « {search} »</span>}
             </p>

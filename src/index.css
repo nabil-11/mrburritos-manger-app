@@ -8,6 +8,13 @@
   --ion-safe-area-bottom: 0px;
 }
 
+/* ─── Bottom footer nav clearance ─────────────────────────────────────────────
+   BottomNav is a fixed bar (~62px + Android nav-bar inset). Reserve that space
+   inside every scrollable page so content is never hidden behind it. */
+.has-bottom-nav ion-content {
+  --padding-bottom: calc(62px + var(--ion-safe-area-bottom, 0px) + 12px);
+}
+
 @theme {
   --color-primary: #F5A800;
   --color-primary-hover: #FF6B00;

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   IonPage, IonContent, IonRefresher, IonRefresherContent,
-  IonIcon, IonSpinner, IonMenuButton, IonHeader, IonToolbar,
+  IonIcon, IonSpinner, IonHeader, IonToolbar,
 } from '@ionic/react';
 import { IonIcon as IonIconComponent } from '@ionic/react';
 import {
@@ -557,15 +557,6 @@ export default function StatisticsPage() {
           padding: '14px 16px 10px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
-            {/* Menu Button */}
-            <IonMenuButton style={{
-              width: 40, height: 40, borderRadius: 12,
-              background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.03)',
-              border: isDark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(0,0,0,0.05)',
-              '--color': T.text2,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 0,
-            }} />
-
             {/* Logo */}
             <div style={{
               width: 40, height: 40, borderRadius: 13, flexShrink: 0,

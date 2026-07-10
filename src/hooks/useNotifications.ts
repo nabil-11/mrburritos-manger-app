@@ -8,8 +8,9 @@ import { notificationsService } from '../modules/common/api';
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY as string;
 
 export const NEW_ORDER_EVENT = 'mr-burritos:new-order';
+export const ORDER_DELIVERED_EVENT = 'mr-burritos:order-delivered';
 
-function playNotificationSound() {
+export function playNotificationSound() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
 
@@ -49,8 +50,37 @@ function dispatch(title?: string, body?: string) {
   window.dispatchEvent(new CustomEvent(NEW_ORDER_EVENT, { detail: { title, body } }));
 }
 
+/** Route an incoming push by its data.type — delivered orders vs new orders. */
+function handleIncoming(data: Record<string, string> | undefined, title?: string, body?: string) {
+  if (data?.type === 'order-delivered') {
+    playNotificationSound();
+    window.dispatchEvent(new CustomEvent(ORDER_DELIVERED_EVENT, {
+      detail: { title, body, orderId: data.orderId ?? '', orderNumber: data.orderNumber ?? '' },
+    }));
+    return;
+  }
+  dispatch(title, body);
+}
+
 async function initNative() {
   try {
+    // High-importance channel with a loud custom sound. Once created it persists
+    // on the device, so FCM notifications ring on it even after the app is later
+    // force-closed (Android shows the notification; the app itself isn't running).
+    try {
+      await PushNotifications.createChannel({
+        id: 'new_orders',
+        name: 'Nouvelles commandes',
+        description: 'Alertes sonores de nouvelles commandes',
+        importance: 5,            // MAX — heads-up banner + sound
+        sound: 'notification.mp3',
+        vibration: true,
+        visibility: 1,            // visible on the lock screen
+        lights: true,
+        lightColor: '#F5A800',
+      });
+    } catch {}
+
     let perm = await PushNotifications.checkPermissions();
     if (perm.receive !== 'granted') {
       perm = await PushNotifications.requestPermissions();
@@ -68,9 +98,15 @@ async function initNative() {
       console.warn('Push registration error:', err);
     });
 
-    // notification is PushNotificationSchema — title/body are top-level fields
+    // App in foreground when the push arrives → in-app alert + looping alarm.
     await PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
-      dispatch(notification.title ?? '', notification.body ?? '');
+      handleIncoming(notification.data as Record<string, string> | undefined, notification.title ?? '', notification.body ?? '');
+    });
+
+    // App was in background / closed and the user tapped the system notification.
+    await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+      const n = action.notification;
+      handleIncoming(n.data as Record<string, string> | undefined, n.title ?? '🌯 Nouvelle commande !', n.body ?? '');
     });
 
     await PushNotifications.register();
@@ -93,10 +129,12 @@ async function initWeb() {
     } catch {}
 
     onMessage(messaging, (payload) => {
-      const { notification } = payload;
-      if (notification) {
-        dispatch(notification.title ?? '', notification.body ?? '');
-      }
+      const { notification, data } = payload;
+      handleIncoming(
+        data as Record<string, string> | undefined,
+        notification?.title ?? '',
+        notification?.body ?? '',
+      );
     });
   } catch (err) {
     console.warn('Web push notifications unavailable:', err);

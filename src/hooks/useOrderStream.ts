@@ -23,7 +23,7 @@
  */
 
 import { useEffect } from 'react';
-import { NEW_ORDER_EVENT } from './useNotifications';
+import { NEW_ORDER_EVENT, ORDER_DELIVERED_EVENT, playNotificationSound } from './useNotifications';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:3000/api';
 
@@ -104,6 +104,25 @@ export function useOrderStream(enabled: boolean) {
                     detail: {
                       title: '🌯 Nouvelle commande !',
                       body: `#${order.orderNumber} — ${typeLabel} — ${order.total} DT`,
+                      order,
+                    },
+                  })
+                );
+              } catch {
+                // Malformed JSON — ignore
+              }
+            } else if (eventType === 'order-delivered' && data) {
+              try {
+                const order = JSON.parse(data);
+                const typeLabel = order.type === 'delivery' ? 'Livraison' : 'À emporter';
+                playNotificationSound();
+                window.dispatchEvent(
+                  new CustomEvent(ORDER_DELIVERED_EVENT, {
+                    detail: {
+                      title: '✅ Commande livrée',
+                      body: `#${order.orderNumber} — ${typeLabel} — ${order.total} DT`,
+                      orderId: order._id,
+                      orderNumber: order.orderNumber,
                       order,
                     },
                   })

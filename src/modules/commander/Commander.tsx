@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   IonPage, IonContent, IonHeader, IonToolbar, IonIcon,
-  IonMenuButton, IonSpinner, IonModal, IonActionSheet,
+  IonSpinner, IonModal, IonActionSheet,
 } from '@ionic/react';
 import { IonIcon as IonIconComponent } from '@ionic/react';
 import {
@@ -1155,13 +1155,6 @@ export default function CommanderPage() {
           minHeight: 'auto', padding: '14px 16px 10px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
-            <IonMenuButton style={{
-              width: 40, height: 40, borderRadius: 12,
-              background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.03)',
-              border: isDark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(0,0,0,0.05)',
-              '--color': T.text2,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 0,
-            }} />
             <div style={{
               width: 40, height: 40, borderRadius: 13, flexShrink: 0,
               background: 'linear-gradient(135deg,#F5A800,#FF6B00)',

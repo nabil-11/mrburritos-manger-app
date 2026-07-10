@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
 interface ThemeContextType {
   isDark: boolean;
@@ -11,6 +11,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = useState<boolean>(() => {
     try { return localStorage.getItem('mr_theme') !== 'light'; } catch { return true; }
   });
+
+  // Drive Ionic's dark palette so overlays (action-sheet, alert, toast) match the UI
+  useEffect(() => {
+    document.documentElement.classList.toggle('ion-palette-dark', isDark);
+  }, [isDark]);
 
   const toggleTheme = () => {
     setIsDark(prev => {
