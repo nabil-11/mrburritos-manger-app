@@ -35,6 +35,9 @@
   },
   "devDependencies": {
     "@capacitor/cli": "8.3.0",
+    "@csstools/postcss-cascade-layers": "^6.0.0",
+    "@csstools/postcss-color-mix-function": "^4.0.6",
+    "@csstools/postcss-oklab-function": "^5.0.6",
     "@tailwindcss/postcss": "^4.2.2",
     "@testing-library/dom": ">=7.21.4",
     "@testing-library/jest-dom": "^5.16.5",

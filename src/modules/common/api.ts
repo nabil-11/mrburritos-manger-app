@@ -49,8 +49,8 @@ export const ordersService = {
     return res.data;
   },
 
-  updateStatus: async (id: string, status: string, preparationDuration?: number) => {
-    const res = await api.put(`/orders/${id}`, { status, preparationDuration });
+  updateStatus: async (id: string, status: string, preparationDuration?: number, deliveryFee?: number) => {
+    const res = await api.put(`/orders/${id}`, { status, preparationDuration, deliveryFee });
     return res.data;
   },
 

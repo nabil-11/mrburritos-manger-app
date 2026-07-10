@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   IonPage, IonContent, IonHeader, IonToolbar, IonIcon,
-  IonMenuButton, IonSpinner, IonModal,
+  IonMenuButton, IonSpinner, IonModal, IonActionSheet,
 } from '@ionic/react';
 import { IonIcon as IonIconComponent } from '@ionic/react';
 import {
@@ -10,7 +10,7 @@ import {
   cartOutline, closeOutline, logOutOutline,
   sunnyOutline, moonOutline, checkmarkCircleOutline,
   callOutline, fastFoodOutline, alertCircleOutline, checkmarkOutline,
-  printOutline,
+  printOutline, timerOutline,
 } from 'ionicons/icons';
 import { authService, productsService, ordersService } from '../common/api';
 import { useAuth } from '../auth/AuthContext';
@@ -111,10 +111,12 @@ function lineTotal(entry: CartEntry) {
 }
 
 // ─── Receipt printer ─────────────────────────────────────────────────────────
-function printReceipt(orderNumber: string, mode: OrderMode, cartSnap: CartEntry[], total: number) {
-  const now = new Date();
+function printReceipt(orderNumber: string, mode: OrderMode, cartSnap: CartEntry[], total: number, prepMinutes?: number) {
+  const now     = new Date();
   const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+  const modeLabel = mode === 'sur_place' ? 'SUR PLACE' : 'A EMPORTER';
 
   const rows = cartSnap.map(entry => {
     const unitExtra = entry.supplements.reduce((s, x) => s + x.price, 0);
@@ -128,66 +130,136 @@ function printReceipt(orderNumber: string, mode: OrderMode, cartSnap: CartEntry[
       : '';
     return `
       <tr>
-        <td class="qty">×${entry.quantity}</td>
+        <td class="qty">x${entry.quantity}</td>
         <td class="name">${entry.product.name.fr}${suppLabel}${noteLabel}</td>
         <td class="price">${line}</td>
       </tr>`;
   }).join('');
 
-  const modeLabel = mode === 'sur_place' ? '🪑  SUR PLACE' : '🛍  À EMPORTER';
+  const prepHtml = prepMinutes
+    ? `<div class="prep-row">
+        <span class="prep-lbl">Temps de preparation</span>
+        <span class="prep-val">${prepMinutes >= 60 ? `${Math.floor(prepMinutes / 60)}h${prepMinutes % 60 ? ` ${prepMinutes % 60}min` : ''}` : `${prepMinutes} min`}</span>
+       </div>`
+    : '';
 
   const html = `<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Reçu #${orderNumber}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recu #${orderNumber}</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+  }
   body {
-    font-family: 'Courier New', Courier, monospace;
+    font-family: Arial, Helvetica, sans-serif;
     font-size: 13px;
-    width: 80mm;
-    margin: 0 auto;
-    padding: 8px 4px 16px;
+    margin: 0;
+    padding: 6px 8px 24px;
     color: #000;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  .center   { text-align: center; }
-  .dash     { border: none; border-top: 1px dashed #000; margin: 7px 0; }
-  .brand    { font-size: 20px; font-weight: 900; text-align: center; letter-spacing: 1px; }
-  .tagline  { font-size: 10px; text-align: center; margin-bottom: 2px; }
-  .ordnum   { font-size: 14px; font-weight: bold; text-align: center; margin: 4px 0; }
-  .datetime { font-size: 11px; text-align: center; color: #444; }
+  .brand {
+    font-size: 22px;
+    font-weight: 900;
+    text-align: center;
+    letter-spacing: 2px;
+    margin-bottom: 2px;
+  }
+  .tagline { font-size: 10px; text-align: center; color: #444; }
+  .dash {
+    border: none;
+    border-top: 1.5px dashed #000;
+    margin: 7px 0;
+  }
+  .ordnum {
+    font-size: 17px;
+    font-weight: 900;
+    text-align: center;
+    letter-spacing: 2px;
+    margin: 5px 0 2px;
+  }
+  .datetime {
+    font-size: 11px;
+    text-align: center;
+    color: #333;
+    margin-bottom: 5px;
+  }
   .mode {
-    font-size: 15px; font-weight: 900; text-align: center;
-    border: 2px solid #000; border-radius: 4px;
-    padding: 5px 0; margin: 8px 0; letter-spacing: 0.5px;
+    font-size: 15px;
+    font-weight: 900;
+    text-align: center;
+    border: 2px solid #000;
+    padding: 5px 0;
+    margin: 7px 0;
+    letter-spacing: 1.5px;
   }
-  table     { width: 100%; border-collapse: collapse; margin: 4px 0; }
-  .qty      { width: 26px; vertical-align: top; padding-right: 4px; }
-  .name     { vertical-align: top; }
-  .price    { text-align: right; vertical-align: top; white-space: nowrap; padding-left: 6px; }
-  .supp     { font-size: 10px; color: #555; padding-left: 2px; }
-  .note     { font-size: 10px; color: #555; font-style: italic; padding-left: 2px; }
-  .tot-label{ font-size: 15px; font-weight: 900; }
-  .tot-val  { font-size: 15px; font-weight: 900; text-align: right; }
-  .thanks   { font-size: 11px; text-align: center; margin-top: 12px; }
+  .section-head {
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 7px 0 4px;
+    color: #444;
+  }
+  table.items { width: 100%; border-collapse: collapse; }
+  .qty   { width: 24px; vertical-align: top; font-weight: 900; font-size: 13px; padding-right: 5px; white-space: nowrap; }
+  .name  { vertical-align: top; font-size: 13px; line-height: 1.45; word-break: break-word; }
+  .price {
+    text-align: right; vertical-align: top;
+    white-space: nowrap; padding-left: 5px;
+    font-weight: 800; font-size: 13px;
+    width: 1%;
+  }
+  td { padding-bottom: 6px; }
+  .supp { font-size: 10px; color: #444; margin-top: 2px; }
+  .note { font-size: 10px; color: #555; font-style: italic; margin-top: 2px; }
+  .tot-label { font-size: 17px; font-weight: 900; padding-top: 4px; }
+  .tot-val   { font-size: 17px; font-weight: 900; text-align: right; padding-top: 4px; white-space: nowrap; }
+  .thanks { font-size: 11px; text-align: center; margin-top: 10px; letter-spacing: 0.5px; }
+  .prep-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f0f0f0;
+    border: 1.5px solid #000;
+    border-radius: 3px;
+    padding: 5px 8px;
+    margin: 6px 0;
+  }
+  .prep-lbl { font-size: 11px; font-weight: 700; }
+  .prep-val { font-size: 14px; font-weight: 900; }
   @media print {
-    @page { margin: 0; size: 80mm auto; }
-    body  { width: 80mm; padding: 4px 2px 10px; }
+    @page {
+      size: 80mm auto;
+      margin: 0;
+    }
+    html, body {
+      width: 100%;
+      margin: 0;
+      padding: 4px 6px 20px;
+    }
   }
 </style>
 </head>
 <body>
-  <div class="brand">🌯 MR. BURRITOS</div>
-  <div class="tagline">Manager — Commande locale</div>
+  <div class="brand">MR. BURRITOS</div>
+  <div class="tagline">Commande locale</div>
   <hr class="dash">
-  <div class="ordnum">#${orderNumber}</div>
-  <div class="datetime">${dateStr} · ${timeStr}</div>
-  <div class="mode">${modeLabel}</div>
+  <div class="ordnum">COMMANDE #${orderNumber}</div>
+  <div class="datetime">${dateStr} a ${timeStr}</div>
+  <div class="mode">&gt;&gt;&gt; ${modeLabel} &lt;&lt;&lt;</div>
+  ${prepHtml}
   <hr class="dash">
-  <table><tbody>${rows}</tbody></table>
+  <div class="section-head">Articles commandes</div>
+  <table class="items"><tbody>${rows}</tbody></table>
   <hr class="dash">
-  <table><tbody>
+  <table style="width:100%"><tbody>
     <tr>
       <td class="tot-label">TOTAL</td>
       <td class="tot-val">${total.toFixed(2)} DT</td>
@@ -198,7 +270,6 @@ function printReceipt(orderNumber: string, mode: OrderMode, cartSnap: CartEntry[
 </body>
 </html>`;
 
-  // Use an invisible iframe — more reliable than window.open() in Capacitor WebView
   const iframe = document.createElement('iframe');
   iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;';
   document.body.appendChild(iframe);
@@ -209,8 +280,8 @@ function printReceipt(orderNumber: string, mode: OrderMode, cartSnap: CartEntry[
     doc.close();
     setTimeout(() => {
       iframe.contentWindow?.print();
-      setTimeout(() => document.body.removeChild(iframe), 2000);
-    }, 400);
+      setTimeout(() => document.body.removeChild(iframe), 2_000);
+    }, 450);
   }
 }
 
@@ -895,8 +966,12 @@ export default function CommanderPage() {
 
   // Last submitted order (for reprinting)
   const [lastReceipt, setLastReceipt] = useState<{
-    orderNumber: string; mode: OrderMode; cart: CartEntry[]; total: number;
+    orderNumber: string; mode: OrderMode; cart: CartEntry[]; total: number; prepMinutes?: number;
   } | null>(null);
+
+  // Prep time action sheet
+  const [prepSheet, setPrepSheet] = useState<{ open: boolean; mode: OrderMode; phone: string }>
+    ({ open: false, mode: 'sur_place', phone: '' });
 
   // Load products
   const load = useCallback(async () => {
@@ -973,7 +1048,7 @@ export default function CommanderPage() {
   };
 
   // Submit order
-  const handleSubmit = async (mode: OrderMode, phone: string) => {
+  const handleSubmit = async (mode: OrderMode, phone: string, prepMinutes?: number) => {
     setSubmitting(true);
     try {
       const cartSnap  = [...cart];       // snapshot before clearing
@@ -999,11 +1074,19 @@ export default function CommanderPage() {
         subtotal: totalSnap,
         total:    totalSnap,
       });
+      // Save prep timer to localStorage so Orders page shows countdown
+      if (prepMinutes && order._id) {
+        const timerKey = 'mr_burritos_prep_timers';
+        const existing = (() => { try { return JSON.parse(localStorage.getItem(timerKey) ?? '{}'); } catch { return {}; } })();
+        const endMs    = Date.now() + prepMinutes * 60_000;
+        const totalMs  = prepMinutes * 60_000;
+        localStorage.setItem(timerKey, JSON.stringify({ ...existing, [order._id]: { endMs, totalMs } }));
+      }
       // Store receipt data for reprinting
-      const receipt = { orderNumber: order.orderNumber, mode, cart: cartSnap, total: totalSnap };
+      const receipt = { orderNumber: order.orderNumber, mode, cart: cartSnap, total: totalSnap, prepMinutes };
       setLastReceipt(receipt);
       // Trigger print
-      printReceipt(receipt.orderNumber, receipt.mode, receipt.cart, receipt.total);
+      printReceipt(receipt.orderNumber, receipt.mode, receipt.cart, receipt.total, prepMinutes);
       setCart([]);
       setCheckoutOpen(false);
       setCartOpen(false);
@@ -1015,6 +1098,31 @@ export default function CommanderPage() {
       setSubmitting(false);
     }
   };
+
+  // Open prep time sheet instead of submitting directly
+  const openPrepSheet = (mode: OrderMode, phone: string) => {
+    setPrepSheet({ open: true, mode, phone });
+  };
+
+  // Called after selecting prep time from the action sheet
+  const handleConfirmWithTime = (minutes: number) => {
+    setPrepSheet(s => ({ ...s, open: false }));
+    handleSubmit(prepSheet.mode, prepSheet.phone, minutes);
+  };
+
+  // Responsive grid columns
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const onResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const gridCols =
+    windowWidth >= 1800 ? 'repeat(5, 1fr)' :
+    windowWidth >= 1400 ? 'repeat(4, 1fr)' :
+    windowWidth >= 1024 ? 'repeat(3, 1fr)' :
+    windowWidth >= 600  ? 'repeat(2, 1fr)' :
+    '1fr';
 
   // Filtered products
   const filtered = activeCat === 'all'
@@ -1108,7 +1216,7 @@ export default function CommanderPage() {
               </p>
             </div>
             <button
-              onClick={() => printReceipt(lastReceipt.orderNumber, lastReceipt.mode, lastReceipt.cart, lastReceipt.total)}
+              onClick={() => printReceipt(lastReceipt.orderNumber, lastReceipt.mode, lastReceipt.cart, lastReceipt.total, lastReceipt.prepMinutes)}
               style={{
                 flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
                 background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.35)',
@@ -1176,7 +1284,7 @@ export default function CommanderPage() {
 
         {/* ── Product grid ── */}
         <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 1fr',
+          display: 'grid', gridTemplateColumns: gridCols,
           gap: 12, padding: '0 16px',
           paddingBottom: cartCount > 0 ? 100 : 24,
         }}>
@@ -1264,11 +1372,24 @@ export default function CommanderPage() {
         <CheckoutForm
           cart={cart}
           onClose={() => setCheckoutOpen(false)}
-          onSubmit={handleSubmit}
+          onSubmit={openPrepSheet}
           submitting={submitting}
           T={T}
         />
       )}
+
+      <IonActionSheet
+        isOpen={prepSheet.open}
+        header="Temps de préparation"
+        buttons={[
+          { text: '15 minutes', icon: timerOutline, handler: () => handleConfirmWithTime(15) },
+          { text: '30 minutes', icon: timerOutline, handler: () => handleConfirmWithTime(30) },
+          { text: '45 minutes', icon: timerOutline, handler: () => handleConfirmWithTime(45) },
+          { text: '1 heure',    icon: timerOutline, handler: () => handleConfirmWithTime(60) },
+          { text: 'Annuler', role: 'cancel', handler: () => setPrepSheet(s => ({ ...s, open: false })) },
+        ]}
+        onDidDismiss={() => setPrepSheet(s => ({ ...s, open: false }))}
+      />
     </IonPage>
   );
 }
